@@ -12,6 +12,28 @@ Expected baseline:
 * document new environment variables, scripts, or workflows
 * record meaningful follow-up work in GitHub Issues
 
+## Writing Issues For AI-Assisted Execution
+
+Issues should be concrete enough that an AI agent or another contributor can execute them without guessing the success condition.
+
+Good issues should usually include:
+
+* the goal
+* what is in scope
+* what is explicitly out of scope
+* acceptance criteria stated as observable behavior
+* validation steps or evidence expected
+* a short `Done means` section
+
+`Done means` should describe the completion bar in direct terms, for example:
+
+* code path exists and is wired into the service
+* tests cover the new behavior
+* CI passes
+* docs or issue follow-ups are updated if needed
+
+Avoid issue bodies that only describe an idea without saying how completion will be judged.
+
 ## Pull Requests
 
 A pull request should include:
