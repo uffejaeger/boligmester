@@ -15,7 +15,7 @@ pip install -e .
 For contributor and CI-equivalent tooling:
 
 ```bash
-pip install -e '.[dev]'
+pip install -e '.[dev,tui]'
 ```
 
 For browser-backed listing fetches:
@@ -92,6 +92,9 @@ Run the test suite:
 ```bash
 PYTHONPATH=src python3 -m unittest discover -s tests -q
 ```
+
+The TUI end-to-end tests use Textual's in-process test driver and are skipped if
+the `tui` extra is not installed.
 
 Run the local quality checks that match CI:
 
