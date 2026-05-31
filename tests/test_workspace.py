@@ -8,6 +8,9 @@ from apartment_agents.models import (
     BuyerProfile,
     HouseholdProfile,
     Listing,
+    ListingSearchCriteria,
+    ListingSearchResult,
+    ListingSearchRun,
     Recommendation,
 )
 from apartment_agents.storage.workspace import LocalWorkspaceStore
@@ -73,6 +76,38 @@ class LocalWorkspaceStoreTest(unittest.TestCase):
             self.assertEqual(records[0].report_id, "report-1")
             self.assertEqual(records[0].buyer_profile_id, "solo")
             self.assertEqual(records[0].recommendation, "BUY")
+
+    def test_save_listing_search_results(self) -> None:
+        with TemporaryDirectory() as tmpdir:
+            store = LocalWorkspaceStore(Path(tmpdir))
+            search_run = ListingSearchRun(
+                search_id="aarhus-c-search",
+                criteria=ListingSearchCriteria(city="Aarhus C", max_price_dkk=4000000),
+                results=[
+                    ListingSearchResult(
+                        listing_id="listing-1",
+                        source="boligsiden",
+                        url="https://www.boligsiden.dk/adresse/test",
+                        title="Testvej 1",
+                        address=Address(
+                            street="Testvej 1",
+                            postal_code="8000",
+                            city="Aarhus C",
+                        ),
+                        asking_price_dkk=3500000,
+                        area_sqm=70,
+                        rooms=3,
+                    )
+                ],
+            )
+
+            path = store.save_listing_search(search_run)
+            searches = store.list_listing_searches()
+
+            self.assertTrue(path.exists())
+            self.assertEqual(len(searches), 1)
+            self.assertEqual(searches[0].criteria.city, "Aarhus C")
+            self.assertEqual(searches[0].results[0].title, "Testvej 1")
 
 
 if __name__ == "__main__":

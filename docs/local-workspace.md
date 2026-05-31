@@ -15,6 +15,7 @@ export BOLIGMESTER_WORKSPACE_DIR="$HOME/.boligmester"
 The first workspace version stores:
 
 * buyer profiles in `buyer_profiles/*.json`
+* apartment search runs in `search_runs/*.json`
 * analysis run metadata in `analysis_runs/*.json`
 
 Generated Markdown reports still live under `REPORT_OUTPUT_DIR` and analysis run
@@ -28,8 +29,15 @@ can be selected in the URL analyzer.
 
 Profile ids may contain letters, numbers, underscores, and dashes.
 
+## Search Runs
+
+Open the Textual TUI and press `2` to search for apartments. Search runs are
+saved with their input criteria and structured result rows. Those rows are the
+local persistence boundary for later comparison, ranking, and watchlist
+features.
+
 ## Current Limits
 
-The workspace does not yet store searched properties, saved apartments,
-watchlists, report annotations, or dashboard state. Those are the next product
-workflow layers on top of this persistence boundary.
+The workspace does not yet store saved apartments, watchlists, report
+annotations, or dashboard state. Those are the next product workflow layers on
+top of this persistence boundary.

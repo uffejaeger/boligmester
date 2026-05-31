@@ -151,7 +151,13 @@ Parser layout and failure-shape fixtures live in `examples/listing_regressions/`
 See `docs/listing-regression-fixtures.md` for the manifest format and covered
 fixture classes.
 
+## Apartment Search
+
+The default search workflow uses deterministic fixtures from `examples/searches/`.
+Set `ENABLE_LIVE_LISTING_FETCH=true` to fetch source search pages instead.
+See `docs/search-workflow.md` for the search inputs and persistence shape.
+
 ## Local Workspace
 
-See `docs/local-workspace.md` for persisted buyer profiles and analysis run
-metadata.
+See `docs/local-workspace.md` for persisted buyer profiles, apartment searches,
+and analysis run metadata.

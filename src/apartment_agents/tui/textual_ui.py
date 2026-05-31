@@ -5,8 +5,12 @@ from dataclasses import dataclass
 
 from rich.text import Text
 
-from apartment_agents.app.services import AnalyzeApartmentRequest, AnalyzeApartmentService
-from apartment_agents.models import BuyerProfile, HouseholdProfile
+from apartment_agents.app.services import (
+    AnalyzeApartmentRequest,
+    AnalyzeApartmentService,
+    SearchApartmentsRequest,
+)
+from apartment_agents.models import BuyerProfile, HouseholdProfile, ListingSearchResult
 
 try:
     from textual import events, on
@@ -58,11 +62,14 @@ MENU_ENTRIES = [
         key="search",
         namespace="default",
         name="saved-searches",
-        ready="0/1",
-        status="Planned",
+        ready="1/1",
+        status="Running",
         kind="Workflow",
-        summary="Saved searches and filters.",
-        detail="Search workflow is not implemented yet. Next build step is saved search support.",
+        summary="Search apartments by city and filters.",
+        detail=(
+            "Runs apartment search, parses structured result rows, and saves each search "
+            "run to the local workspace."
+        ),
     ),
     MenuEntry(
         key="documents",
@@ -157,6 +164,22 @@ MENU_ENTRIES = [
 
 def _format_dkk(value: int) -> str:
     return f"{value:,}".replace(",", ".") + " DKK"
+
+
+def _format_optional_dkk(value: int | None) -> str:
+    return _format_dkk(value) if value is not None else "-"
+
+
+def _format_optional_sqm(value: float | None) -> str:
+    if value is None:
+        return "-"
+    return f"{value:g} m2"
+
+
+def _format_optional_rooms(value: float | None) -> str:
+    if value is None:
+        return "-"
+    return f"{value:g}"
 
 
 def _profile_options(profiles: list[BuyerProfile]) -> list[tuple[str, str]]:
@@ -255,6 +278,10 @@ class CommandTable(DataTable):
             asyncio.create_task(self.app.screen.action_run_analysis())
         elif row_key.value == "sample":
             self.app.screen.action_load_sample()
+        elif row_key.value == "search":
+            asyncio.create_task(self.app.screen.action_run_search())
+        elif row_key.value == "analyze-selected":
+            self.app.screen.action_analyze_selected()
         elif row_key.value == "save":
             asyncio.create_task(self.app.screen.action_save_profile())
 
@@ -294,6 +321,7 @@ class MenuScreen(Screen[None]):
                 ("up/down", "Move"),
                 ("enter", "Open"),
                 ("1", "Analyze"),
+                ("2", "Search"),
                 ("p", "Profiles"),
                 ("7", "Reports"),
                 ("esc", "Back"),
@@ -353,6 +381,9 @@ class MenuScreen(Screen[None]):
         if key == "analyze":
             self.app.push_screen(AnalyzeScreen(self.app.service))
             return
+        if key == "search":
+            self.app.push_screen(SearchScreen(self.app.service))
+            return
         if key == "profiles":
             self.app.push_screen(ProfileScreen(self.app.service))
             return
@@ -382,15 +413,221 @@ class PlaceholderScreen(Screen[None]):
         )
 
 
+class SearchScreen(Screen[None]):
+    BINDINGS = [
+        Binding("f", "run_search", "Search"),
+        Binding("a", "analyze_selected", "Analyze"),
+    ]
+
+    def __init__(self, service: AnalyzeApartmentService) -> None:
+        super().__init__()
+        self.service = service
+        self._results: list[ListingSearchResult] = []
+        self._selected_url: str | None = None
+        self._search_running = False
+
+    def compose(self) -> ComposeResult:
+        yield Vertical(
+            _top_bar("search/apartments", self.service),
+            Horizontal(
+                VerticalScroll(
+                    Static("SEARCH", classes="pane-title"),
+                    Static("CITY", classes="field-label"),
+                    Input(value="Aarhus C", id="search-city"),
+                    Static("MAX PRICE DKK", classes="field-label"),
+                    Input(placeholder="4500000", id="search-max-price"),
+                    Static("MIN AREA M2", classes="field-label"),
+                    Input(placeholder="50", id="search-min-area"),
+                    Static("MIN ROOMS", classes="field-label"),
+                    Input(placeholder="2", id="search-min-rooms"),
+                    Static("MAX RESULTS", classes="field-label"),
+                    Input(value="10", id="search-max-results"),
+                    Static("SEARCH URL", classes="field-label"),
+                    Input(placeholder="Optional source search URL", id="search-url"),
+                    CommandTable(
+                        id="search-command-table",
+                        cursor_type="row",
+                        show_header=False,
+                        show_row_labels=False,
+                    ),
+                    Static("", id="search-status", classes="status-line"),
+                    classes="form-pane",
+                ),
+                Vertical(
+                    Static("RESULTS", classes="pane-title"),
+                    DataTable(
+                        id="search-results",
+                        cursor_type="row",
+                        show_row_labels=False,
+                        zebra_stripes=True,
+                    ),
+                    Static("", id="search-detail", classes="describe-body"),
+                    classes="output-pane",
+                ),
+                classes="main-split",
+            ),
+            _key_bar(
+                ("up/down", "Move"),
+                ("enter", "Run command"),
+                ("f", "Search"),
+                ("a", "Analyze selected"),
+                ("esc", "Back"),
+                ("q", "Quit"),
+            ),
+            classes="screen-frame",
+        )
+
+    def on_mount(self) -> None:
+        commands = self.query_one("#search-command-table", DataTable)
+        commands.add_column("KEY", width=5)
+        commands.add_column("ACTION", width=24)
+        commands.add_row("f", "search-apartments", key="search")
+        commands.add_row("a", "analyze-selected", key="analyze-selected")
+
+        results = self.query_one("#search-results", DataTable)
+        results.add_column("ADDRESS", width=30)
+        results.add_column("PRICE", width=14)
+        results.add_column("AREA", width=9)
+        results.add_column("ROOMS", width=7)
+        self.set_timer(0.05, self.query_one("#search-city", Input).focus)
+
+    @on(DataTable.RowSelected, "#search-command-table")
+    async def search_command_selected(self, event: DataTable.RowSelected) -> None:
+        if event.row_key.value == "search":
+            await self.action_run_search()
+        elif event.row_key.value == "analyze-selected":
+            self.action_analyze_selected()
+
+    @on(DataTable.RowHighlighted, "#search-results")
+    def search_result_highlighted(self, event: DataTable.RowHighlighted) -> None:
+        if event.row_key.value is not None:
+            self._selected_url = str(event.row_key.value)
+            self._show_search_result_detail(self._selected_url)
+
+    @on(DataTable.RowSelected, "#search-results")
+    def search_result_selected(self, event: DataTable.RowSelected) -> None:
+        if event.row_key.value is not None:
+            self._selected_url = str(event.row_key.value)
+            self.action_analyze_selected()
+
+    async def action_run_search(self) -> None:
+        if self._search_running:
+            return
+
+        status = self.query_one("#search-status", Static)
+        self._search_running = True
+        status.update(Text("running search/apartments", style="bold #ffd166"))
+        try:
+            result = await asyncio.to_thread(
+                self.service.search_apartments,
+                SearchApartmentsRequest(
+                    city=self._input_value("search-city"),
+                    max_price_dkk=self._optional_int("search-max-price"),
+                    min_area_sqm=self._optional_float("search-min-area"),
+                    min_rooms=self._optional_float("search-min-rooms"),
+                    max_results=self._required_int("search-max-results"),
+                    search_url=self._input_value("search-url") or None,
+                ),
+            )
+        except Exception as exc:
+            status.update(Text(f"search error: {exc}", style="bold #ff6b6b"))
+            return
+        finally:
+            self._search_running = False
+
+        self._results = result.search_run.results
+        self._refresh_search_table()
+        if self._results:
+            self._selected_url = self._results[0].url
+            self._show_search_result_detail(self._selected_url)
+        status.update(
+            Text(
+                f"search complete: {len(self._results)} results saved",
+                style="bold #7ddf64",
+            )
+        )
+
+    def action_analyze_selected(self) -> None:
+        status = self.query_one("#search-status", Static)
+        result = self._selected_result()
+        if result is None:
+            status.update(Text("select a search result first", style="bold #ff6b6b"))
+            return
+        self.app.push_screen(AnalyzeScreen(self.service, initial_listing_url=result.url))
+
+    def _refresh_search_table(self) -> None:
+        table = self.query_one("#search-results", DataTable)
+        table.clear()
+        for result in self._results:
+            table.add_row(
+                result.address.street,
+                _format_optional_dkk(result.asking_price_dkk),
+                _format_optional_sqm(result.area_sqm),
+                _format_optional_rooms(result.rooms),
+                key=result.url,
+            )
+
+    def _show_search_result_detail(self, url: str) -> None:
+        result = next((candidate for candidate in self._results if candidate.url == url), None)
+        if result is None:
+            return
+        self.query_one("#search-detail", Static).update(
+            "\n".join(
+                [
+                    f"[b]{result.title}[/b]",
+                    f"URL: {result.url}",
+                    f"Address: {result.address.street}, {result.address.postal_code} {result.address.city}",
+                    f"Price: {_format_optional_dkk(result.asking_price_dkk)}",
+                    f"Area: {_format_optional_sqm(result.area_sqm)}",
+                    f"Rooms: {_format_optional_rooms(result.rooms)}",
+                    f"Owner cost: {_format_optional_dkk(result.owner_cost_monthly_dkk)}",
+                    f"Price/m2: {_format_optional_dkk(result.price_per_sqm_dkk)}",
+                ]
+            )
+        )
+
+    def _selected_result(self) -> ListingSearchResult | None:
+        if self._selected_url is None:
+            return None
+        return next(
+            (candidate for candidate in self._results if candidate.url == self._selected_url),
+            None,
+        )
+
+    def _input_value(self, widget_id: str) -> str:
+        return self.query_one(f"#{widget_id}", Input).value.strip()
+
+    def _required_int(self, widget_id: str) -> int:
+        value = self._input_value(widget_id)
+        if not value:
+            raise ValueError(f"{widget_id.replace('-', ' ')} is required")
+        return int(value)
+
+    def _optional_int(self, widget_id: str) -> int | None:
+        value = self._input_value(widget_id)
+        if not value:
+            return None
+        return int(value)
+
+    def _optional_float(self, widget_id: str) -> float | None:
+        value = self._input_value(widget_id)
+        if not value:
+            return None
+        return float(value.replace(",", "."))
+
+
 class AnalyzeScreen(Screen[None]):
     BINDINGS = [
         Binding("r", "run_analysis", "Run"),
         Binding("s", "load_sample", "Sample"),
     ]
 
-    def __init__(self, service: AnalyzeApartmentService) -> None:
+    def __init__(
+        self, service: AnalyzeApartmentService, initial_listing_url: str = SAMPLE_LISTING_URL
+    ) -> None:
         super().__init__()
         self.service = service
+        self.initial_listing_url = initial_listing_url
         self._analysis_running = False
 
     def compose(self) -> ComposeResult:
@@ -408,7 +645,7 @@ class AnalyzeScreen(Screen[None]):
                     NavigationInput(
                         placeholder="Listing URL",
                         id="listing-url",
-                        value=SAMPLE_LISTING_URL,
+                        value=self.initial_listing_url,
                     ),
                     Static("BUYER PROFILE", classes="field-label"),
                     Select(
@@ -840,7 +1077,7 @@ class BoligmesterApp(App[None]):
         background: #0a1117;
     }
 
-    #command-table {
+    #command-table, #search-command-table, #profile-command-table {
         height: 4;
         margin-top: 1;
     }

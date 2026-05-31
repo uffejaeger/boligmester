@@ -33,6 +33,7 @@ class FixtureStore:
         ]
         self._listing_index_cache: dict[str, dict[str, str]] | None = None
         self._captured_listing_index_cache: dict[str, dict[str, str]] | None = None
+        self._search_index_cache: list[dict[str, str]] | None = None
 
     def prepend_buyer_profile_root(self, root: Path) -> None:
         if root in self.buyer_profile_roots:
@@ -59,6 +60,24 @@ class FixtureStore:
             return document_name, path.read_text(encoding="utf-8")
         except FileNotFoundError as exc:
             raise FixtureNotFoundError(f"Captured listing document missing: {path}") from exc
+
+    def load_search_document(self, source: str, city: str, property_type: str) -> str:
+        city_key = _normalize_lookup_value(city)
+        property_type_key = _normalize_lookup_value(property_type)
+        for item in self._search_index():
+            if (
+                item["source"] == source
+                and _normalize_lookup_value(item["city"]) == city_key
+                and _normalize_lookup_value(item["property_type"]) == property_type_key
+            ):
+                path = self.root / "searches" / item["document"]
+                try:
+                    return path.read_text(encoding="utf-8")
+                except FileNotFoundError as exc:
+                    raise FixtureNotFoundError(f"Search fixture missing: {path}") from exc
+        raise FixtureNotFoundError(
+            f"No search fixture found for source={source}, city={city}, property_type={property_type}"
+        )
 
     def load_buyer_profile(self, profile_id: str) -> BuyerProfile:
         for root in self.buyer_profile_roots:
@@ -165,6 +184,17 @@ class FixtureStore:
                 }
         return self._captured_listing_index_cache
 
+    def _search_index(self) -> list[dict[str, str]]:
+        if self._search_index_cache is None:
+            path = self.root / "searches" / "index.json"
+            try:
+                raw_index = self._read_json(path)
+            except FileNotFoundError:
+                self._search_index_cache = []
+            else:
+                self._search_index_cache = raw_index.get("items", [])
+        return self._search_index_cache
+
     def _read_json(self, path: Path) -> dict[str, Any]:
         with path.open("r", encoding="utf-8") as handle:
             return json.load(handle)
@@ -203,3 +233,7 @@ class FixtureStore:
             interest_rate_pct=payload.get("interest_rate_pct"),
             citations=citations,
         )
+
+
+def _normalize_lookup_value(value: str) -> str:
+    return value.strip().casefold()

@@ -8,7 +8,11 @@ from apartment_agents.app.errors import (
     MissingListingUrlError,
     StartupValidationError,
 )
-from apartment_agents.app.services import AnalyzeApartmentRequest, AnalyzeApartmentService
+from apartment_agents.app.services import (
+    AnalyzeApartmentRequest,
+    AnalyzeApartmentService,
+    SearchApartmentsRequest,
+)
 from apartment_agents.adk.runner import AdkAnalysisRunner
 from apartment_agents.config import AppConfig
 from apartment_agents.models import BuyerProfile, HouseholdProfile
@@ -89,6 +93,26 @@ class AnalyzeApartmentServiceTest(unittest.TestCase):
             self.assertEqual(
                 fixture_store.load_buyer_profile("custom_store_profile").buyer_id,
                 "custom_store_profile",
+            )
+
+    def test_search_apartments_persists_results(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            service = AnalyzeApartmentService(
+                config=AppConfig(output_dir=Path(tmpdir), adk_backend="mock"),
+            )
+
+            result = service.search_apartments(
+                SearchApartmentsRequest(
+                    city="Aarhus C",
+                    max_price_dkk=3700000,
+                    min_area_sqm=50,
+                )
+            )
+
+            self.assertTrue(result.workspace_path.exists())
+            self.assertEqual(len(result.search_run.results), 2)
+            self.assertEqual(
+                service.available_listing_searches()[0].search_id, result.search_run.search_id
             )
 
     def test_analyze_reports_imported_capture_assumption(self) -> None:

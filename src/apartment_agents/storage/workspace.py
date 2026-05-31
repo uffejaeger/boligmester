@@ -3,14 +3,23 @@ from __future__ import annotations
 import json
 import re
 from dataclasses import asdict, dataclass
+from datetime import datetime
 from pathlib import Path
 from typing import Any
 
 from apartment_agents.app.errors import WorkspacePersistenceError
-from apartment_agents.models import AnalysisReport, BuyerProfile, HouseholdProfile
+from apartment_agents.models import (
+    Address,
+    AnalysisReport,
+    BuyerProfile,
+    HouseholdProfile,
+    ListingSearchCriteria,
+    ListingSearchResult,
+    ListingSearchRun,
+)
 
 
-PROFILE_ID_PATTERN = re.compile(r"^[A-Za-z0-9_-]+$")
+SAFE_ID_PATTERN = re.compile(r"^[A-Za-z0-9_-]+$")
 
 
 @dataclass(frozen=True, slots=True)
@@ -29,20 +38,22 @@ class LocalWorkspaceStore:
         self.root = root
         self.buyer_profiles_dir = self.root / "buyer_profiles"
         self.analysis_runs_dir = self.root / "analysis_runs"
+        self.search_runs_dir = self.root / "search_runs"
         self.ensure_directories()
 
     def ensure_directories(self) -> None:
         self.buyer_profiles_dir.mkdir(parents=True, exist_ok=True)
         self.analysis_runs_dir.mkdir(parents=True, exist_ok=True)
+        self.search_runs_dir.mkdir(parents=True, exist_ok=True)
 
     def save_buyer_profile(self, profile: BuyerProfile) -> Path:
-        self._validate_profile_id(profile.buyer_id)
+        self._validate_safe_id(profile.buyer_id, "Buyer profile id")
         path = self.buyer_profiles_dir / f"{profile.buyer_id}.json"
         self._write_json(path, self._buyer_profile_to_payload(profile))
         return path
 
     def load_buyer_profile(self, profile_id: str) -> BuyerProfile:
-        self._validate_profile_id(profile_id)
+        self._validate_safe_id(profile_id, "Buyer profile id")
         path = self.buyer_profiles_dir / f"{profile_id}.json"
         try:
             payload = self._read_json(path)
@@ -82,10 +93,22 @@ class LocalWorkspaceStore:
             records.append(AnalysisRunRecord(**payload))
         return records
 
-    def _validate_profile_id(self, profile_id: str) -> None:
-        if not PROFILE_ID_PATTERN.fullmatch(profile_id):
+    def save_listing_search(self, search_run: ListingSearchRun) -> Path:
+        self._validate_safe_id(search_run.search_id, "Search id")
+        path = self.search_runs_dir / f"{search_run.search_id}.json"
+        self._write_json(path, self._listing_search_to_payload(search_run))
+        return path
+
+    def list_listing_searches(self) -> list[ListingSearchRun]:
+        searches = []
+        for path in sorted(self.search_runs_dir.glob("*.json")):
+            searches.append(self._listing_search_from_payload(self._read_json(path)))
+        return searches
+
+    def _validate_safe_id(self, value: str, label: str) -> None:
+        if not SAFE_ID_PATTERN.fullmatch(value):
             raise WorkspacePersistenceError(
-                "Buyer profile id may only contain letters, numbers, underscores, and dashes."
+                f"{label} may only contain letters, numbers, underscores, and dashes."
             )
 
     def _read_json(self, path: Path) -> dict[str, Any]:
@@ -136,3 +159,76 @@ class LocalWorkspaceStore:
             employment_notes=payload.get("employment_notes"),
             risk_tolerance=payload.get("risk_tolerance", "balanced"),
         )
+
+    def _listing_search_to_payload(self, search_run: ListingSearchRun) -> dict[str, Any]:
+        criteria = search_run.criteria
+        return {
+            "search_id": search_run.search_id,
+            "generated_at": search_run.generated_at.isoformat(),
+            "criteria": {
+                "city": criteria.city,
+                "source": criteria.source,
+                "property_type": criteria.property_type,
+                "query": criteria.query,
+                "min_price_dkk": criteria.min_price_dkk,
+                "max_price_dkk": criteria.max_price_dkk,
+                "min_area_sqm": criteria.min_area_sqm,
+                "max_area_sqm": criteria.max_area_sqm,
+                "min_rooms": criteria.min_rooms,
+                "max_results": criteria.max_results,
+                "search_url": criteria.search_url,
+            },
+            "results": [
+                self._listing_search_result_to_payload(result) for result in search_run.results
+            ],
+        }
+
+    def _listing_search_result_to_payload(self, result: ListingSearchResult) -> dict[str, Any]:
+        return {
+            "listing_id": result.listing_id,
+            "source": result.source,
+            "url": result.url,
+            "title": result.title,
+            "address": {
+                "street": result.address.street,
+                "postal_code": result.address.postal_code,
+                "city": result.address.city,
+                "municipality": result.address.municipality,
+                "country_code": result.address.country_code,
+            },
+            "asking_price_dkk": result.asking_price_dkk,
+            "area_sqm": result.area_sqm,
+            "rooms": result.rooms,
+            "owner_cost_monthly_dkk": result.owner_cost_monthly_dkk,
+            "raw_payload": result.raw_payload,
+        }
+
+    def _listing_search_from_payload(self, payload: dict[str, Any]) -> ListingSearchRun:
+        criteria = ListingSearchCriteria(**payload["criteria"])
+        return ListingSearchRun(
+            search_id=payload["search_id"],
+            criteria=criteria,
+            results=[
+                self._listing_search_result_from_payload(result)
+                for result in payload.get("results", [])
+            ],
+            generated_at=_datetime_from_iso(payload["generated_at"]),
+        )
+
+    def _listing_search_result_from_payload(self, payload: dict[str, Any]) -> ListingSearchResult:
+        return ListingSearchResult(
+            listing_id=payload["listing_id"],
+            source=payload["source"],
+            url=payload["url"],
+            title=payload["title"],
+            address=Address(**payload["address"]),
+            asking_price_dkk=payload.get("asking_price_dkk"),
+            area_sqm=payload.get("area_sqm"),
+            rooms=payload.get("rooms"),
+            owner_cost_monthly_dkk=payload.get("owner_cost_monthly_dkk"),
+            raw_payload=payload.get("raw_payload", {}),
+        )
+
+
+def _datetime_from_iso(value: str) -> datetime:
+    return datetime.fromisoformat(value)

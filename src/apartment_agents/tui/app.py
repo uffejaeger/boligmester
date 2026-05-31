@@ -22,8 +22,8 @@ MENU_ITEMS = [
 PLACEHOLDER_SCREENS = {
     "2": {
         "title": "Search Apartments",
-        "status": "Planned",
-        "message": "Search workflow is not implemented yet. The next build step is saved search and filter support.",
+        "status": "Available",
+        "message": "Apartment search is available in the Textual TUI and saved to the local workspace.",
     },
     "3": {
         "title": "Analyze Documents",
