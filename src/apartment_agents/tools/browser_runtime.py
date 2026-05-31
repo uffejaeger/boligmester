@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 import argparse
+import os
 import sys
+from pathlib import Path
 from urllib.parse import urlparse
 
 from apartment_agents.app.errors import ListingFetchError
@@ -27,6 +29,10 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         choices=["load", "domcontentloaded", "networkidle", "commit"],
         help="Playwright wait strategy for navigation.",
     )
+    parser.add_argument(
+        "--storage-state",
+        help="Optional Playwright storage-state JSON file for session-backed fetches.",
+    )
     return parser.parse_args(argv)
 
 
@@ -41,10 +47,12 @@ def fetch_rendered_html(
     *,
     timeout_ms: int = DEFAULT_TIMEOUT_MS,
     wait_until: str = "domcontentloaded",
+    storage_state_path: str | Path | None = None,
 ) -> str:
     validate_url(url)
     if timeout_ms <= 0:
         raise ListingFetchError("Browser runtime timeout must be positive.")
+    resolved_storage_state = _resolve_storage_state_path(storage_state_path)
     try:
         from playwright.sync_api import Error as PlaywrightError
         from playwright.sync_api import sync_playwright
@@ -56,7 +64,10 @@ def fetch_rendered_html(
     try:
         with sync_playwright() as playwright:
             browser = playwright.chromium.launch(headless=True)
-            context = browser.new_context()
+            context_kwargs = {}
+            if resolved_storage_state is not None:
+                context_kwargs["storage_state"] = str(resolved_storage_state)
+            context = browser.new_context(**context_kwargs)
             page = context.new_page()
             page.goto(url, wait_until=wait_until, timeout=timeout_ms)
             html = page.content()
@@ -74,12 +85,25 @@ def main(argv: list[str] | None = None) -> int:
             args.url,
             timeout_ms=args.timeout_ms,
             wait_until=args.wait_until,
+            storage_state_path=args.storage_state,
         )
     except ListingFetchError as exc:
         print(str(exc), file=sys.stderr)
         return 1
     sys.stdout.write(html)
     return 0
+
+
+def _resolve_storage_state_path(storage_state_path: str | Path | None) -> Path | None:
+    value = storage_state_path or os.getenv("BROWSER_STORAGE_STATE_PATH")
+    if not value:
+        return None
+    path = Path(value).expanduser()
+    if not path.is_file():
+        raise ListingFetchError(
+            f"Browser storage-state file does not exist or is not a file: {path}"
+        )
+    return path
 
 
 if __name__ == "__main__":

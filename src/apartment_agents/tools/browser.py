@@ -1,9 +1,11 @@
 from __future__ import annotations
 
+import os
 import shlex
 import shutil
 import subprocess
 from dataclasses import dataclass
+from pathlib import Path
 
 from apartment_agents.app.errors import ConfigValidationError, ListingFetchError
 from apartment_agents.tools.http import detect_blocked_listing_html
@@ -13,6 +15,7 @@ from apartment_agents.tools.http import detect_blocked_listing_html
 class BrowserCommandPageFetcher:
     command_template: str
     timeout_seconds: int = 45
+    storage_state_path: Path | None = None
 
     def __post_init__(self) -> None:
         if not self.command_template.strip():
@@ -34,11 +37,25 @@ class BrowserCommandPageFetcher:
             )
 
     def fetch_text(self, url: str) -> str:
-        argv = [part.replace("{url}", url) for part in shlex.split(self.command_template)]
+        argv = []
+        storage_state_value = (
+            str(self.storage_state_path.expanduser()) if self.storage_state_path is not None else ""
+        )
+        for part in shlex.split(self.command_template):
+            part = part.replace("{url}", url)
+            part = part.replace("{storage_state_path}", storage_state_value)
+            argv.append(part)
+        env = None
+        if self.storage_state_path is not None:
+            env = {
+                **os.environ,
+                "BROWSER_STORAGE_STATE_PATH": str(self.storage_state_path.expanduser()),
+            }
         try:
             result = subprocess.run(
                 argv,
                 capture_output=True,
+                env=env,
                 text=True,
                 timeout=self.timeout_seconds,
                 check=False,
