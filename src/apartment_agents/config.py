@@ -16,6 +16,7 @@ class AppConfig:
     app_env: str = "development"
     log_level: str = "INFO"
     output_dir: Path = Path("output")
+    workspace_dir: Path | None = None
     adk_backend: str = "mock"
     adk_model: str = "gemini-2.5-pro"
     adk_timeout_seconds: int = 30
@@ -29,6 +30,8 @@ class AppConfig:
     google_api_key: str | None = None
 
     def __post_init__(self) -> None:
+        if self.workspace_dir is None:
+            self.workspace_dir = self.output_dir / "workspace"
         configure_logging(self.log_level)
         self.validate()
         self.ensure_directories()
@@ -39,6 +42,7 @@ class AppConfig:
             app_env=self.app_env,
             adk_backend=self.adk_backend,
             output_dir=str(self.output_dir),
+            workspace_dir=str(self.workspace_dir),
             log_level=self.log_level,
         )
 
@@ -49,6 +53,7 @@ class AppConfig:
             app_env=os.getenv("APP_ENV", "development"),
             log_level=os.getenv("LOG_LEVEL", "INFO"),
             output_dir=output_dir,
+            workspace_dir=_optional_path_from_env("BOLIGMESTER_WORKSPACE_DIR"),
             adk_backend=os.getenv("ADK_BACKEND", "mock"),
             adk_model=os.getenv("ADK_MODEL", "gemini-2.5-pro"),
             adk_timeout_seconds=int(os.getenv("ADK_TIMEOUT_SECONDS", "30")),
@@ -66,6 +71,8 @@ class AppConfig:
 
     def ensure_directories(self) -> None:
         self.output_dir.mkdir(parents=True, exist_ok=True)
+        assert self.workspace_dir is not None
+        self.workspace_dir.mkdir(parents=True, exist_ok=True)
 
     def validate(self) -> None:
         if self.adk_backend not in {"mock", "google_adk"}:

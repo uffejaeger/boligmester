@@ -56,3 +56,7 @@ class AdkRuntimeUnavailableError(ApartmentAgentsError):
 
 class ReportWriteError(ApartmentAgentsError):
     """Raised when a rendered report cannot be written."""
+
+
+class WorkspacePersistenceError(ApartmentAgentsError):
+    """Raised when local workspace state cannot be saved or loaded."""

@@ -11,6 +11,7 @@ from apartment_agents.app.errors import (
 from apartment_agents.app.services import AnalyzeApartmentRequest, AnalyzeApartmentService
 from apartment_agents.adk.runner import AdkAnalysisRunner
 from apartment_agents.config import AppConfig
+from apartment_agents.models import BuyerProfile, HouseholdProfile
 from apartment_agents.storage.fixtures import FixtureStore
 from apartment_agents.tools.listings import ListingIngestionService
 
@@ -33,6 +34,62 @@ class AnalyzeApartmentServiceTest(unittest.TestCase):
             self.assertIn("Recommendation: **BUY**", result.report_markdown)
             self.assertEqual(result.report.findings[0].agent_name, "buyer_committee")
             self.assertIn("normalized_scores", result.report.findings[0].details)
+            records = service.workspace_store.list_analysis_runs()
+            self.assertEqual(len(records), 1)
+            self.assertEqual(records[0].report_id, result.report.report_id)
+
+    def test_saved_workspace_profile_can_be_used_for_analysis(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            service = AnalyzeApartmentService(
+                config=AppConfig(output_dir=Path(tmpdir), adk_backend="mock"),
+            )
+            profile = BuyerProfile(
+                buyer_id="saved_profile",
+                household=HouseholdProfile(adults=1),
+                gross_annual_income_dkk=840000,
+                net_monthly_income_dkk=41000,
+                savings_dkk=450000,
+                existing_debt_dkk=0,
+                risk_tolerance="balanced",
+            )
+
+            service.save_buyer_profile(profile)
+            result = service.analyze(
+                AnalyzeApartmentRequest(
+                    listing_url="https://www.boligsiden.dk/adresse/frederiks-alle-12-3-th-8000-aarhus-c",
+                    buyer_profile_id="saved_profile",
+                )
+            )
+
+            self.assertEqual(result.report.buyer_profile.buyer_id, "saved_profile")
+            self.assertIn(
+                "saved_profile",
+                [profile.buyer_id for profile in service.available_buyer_profiles()],
+            )
+
+    def test_saved_workspace_profile_is_added_to_injected_fixture_store(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            fixture_store = FixtureStore()
+            service = AnalyzeApartmentService(
+                config=AppConfig(output_dir=Path(tmpdir), adk_backend="mock"),
+                fixture_store=fixture_store,
+            )
+            profile = BuyerProfile(
+                buyer_id="custom_store_profile",
+                household=HouseholdProfile(adults=2),
+                gross_annual_income_dkk=920000,
+                net_monthly_income_dkk=52000,
+                savings_dkk=650000,
+                existing_debt_dkk=100000,
+                risk_tolerance="balanced",
+            )
+
+            service.save_buyer_profile(profile)
+
+            self.assertEqual(
+                fixture_store.load_buyer_profile("custom_store_profile").buyer_id,
+                "custom_store_profile",
+            )
 
     def test_analyze_reports_imported_capture_assumption(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:

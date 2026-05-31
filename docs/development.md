@@ -43,6 +43,13 @@ export ENABLE_LIVE_LISTING_FETCH=true
 
 Use `ADK_BACKEND=mock` for fixture-backed local development without the live ADK runtime.
 
+User-created local state is written under `output/workspace` by default. To keep
+it somewhere else:
+
+```bash
+export BOLIGMESTER_WORKSPACE_DIR="$HOME/.boligmester"
+```
+
 If Boligsiden blocks plain HTTP fetches in your environment, enable the browser fallback and point it at a command that writes rendered HTML to stdout:
 
 ```bash
@@ -143,3 +150,8 @@ PYTHONPATH=src python3 scripts/import_captured_listing.py \
 Parser layout and failure-shape fixtures live in `examples/listing_regressions/`.
 See `docs/listing-regression-fixtures.md` for the manifest format and covered
 fixture classes.
+
+## Local Workspace
+
+See `docs/local-workspace.md` for persisted buyer profiles and analysis run
+metadata.

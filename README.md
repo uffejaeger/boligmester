@@ -16,15 +16,16 @@ Current implementation includes:
 * deterministic finance calculations
 * calibrated Danish finance screening assumptions
 * listing ingestion with fixture, live-fetch, browser-fallback, and imported-capture paths
+* manifest-backed listing regression fixtures
 * a validation harness for real-world URL sets
 * an explicit top-level analysis workflow graph with deterministic nodes and an ADK agent boundary
 * a terminal UI for the first analysis flow
+* local workspace persistence for buyer profiles and analysis run metadata
 
 Still in progress:
 
-* real ADK runtime verification with sub-agent delegation
-* broader real-world listing coverage and regression fixtures
 * web productization and hosted workflows
+* property search, saved apartments, graph views, and watchlists
 
 ## Read Next
 
@@ -36,6 +37,7 @@ Still in progress:
 * [Finance boundary](docs/finance-boundary.md)
 * [Finance policy calibration](docs/finance-policy.md)
 * [MVP validation notes](docs/mvp-validation-aarhus.md)
+* [Local workspace](docs/local-workspace.md)
 
 ## Repository Layout
 
