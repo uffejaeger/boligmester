@@ -41,7 +41,7 @@ class TuiTest(unittest.TestCase):
     def test_render_placeholder_screen_for_saved_apartments(self) -> None:
         screen = render_placeholder_screen("6")
 
-        self.assertIn("Saved Apartments", screen)
+        self.assertIn("Watchlist", screen)
         self.assertIn("Status: Available", screen)
 
     def test_render_placeholder_screen_for_compare(self) -> None:
@@ -259,6 +259,32 @@ class TuiTest(unittest.TestCase):
                     listing_url,
                     "https://www.boligsiden.dk/adresse/frederiks-alle-12-3-th-8000-aarhus-c",
                 )
+
+        asyncio.run(scenario())
+
+    @unittest.skipUnless(BoligmesterApp is not None, "Textual is an optional TUI extra")
+    def test_textual_watchlist_screen_refreshes_tracking(self) -> None:
+        async def scenario() -> None:
+            with TemporaryDirectory() as tmpdir:
+                service = AnalyzeApartmentService(
+                    config=AppConfig(output_dir=Path(tmpdir), adk_backend="mock")
+                )
+                search = service.search_apartments(SearchApartmentsRequest(city="Aarhus C"))
+                service.save_search_result_apartment(search.search_run.results[0])
+                app = BoligmesterApp(service)
+
+                async with app.run_test(size=(110, 34)) as pilot:
+                    await pilot.pause(0.1)
+                    await pilot.press("6")
+                    await pilot.pause(0.1)
+
+                    await app.screen.action_refresh_watchlist()
+                    await pilot.pause(0.1)
+
+                    status = app.screen.query_one("#watchlist-status", Static)
+
+                self.assertEqual(str(status.content), "watchlist refresh: 0 changes")
+                self.assertEqual(len(service.available_watchlist_runs()), 1)
 
         asyncio.run(scenario())
 

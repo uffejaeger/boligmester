@@ -12,6 +12,8 @@ from apartment_agents.app.services import (
     AnalyzeApartmentRequest,
     AnalyzeApartmentService,
     CompareApartmentsRequest,
+    RefreshWatchlistRequest,
+    SaveApartmentRequest,
     SearchApartmentsRequest,
 )
 from apartment_agents.adk.runner import AdkAnalysisRunner
@@ -164,6 +166,44 @@ class AnalyzeApartmentServiceTest(unittest.TestCase):
             self.assertTrue(
                 any(item.approval_likelihood is not None for item in result.comparison.items)
             )
+
+    def test_watchlist_refresh_detects_saved_apartment_changes(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            service = AnalyzeApartmentService(
+                config=AppConfig(output_dir=Path(tmpdir), adk_backend="mock"),
+            )
+            search = service.search_apartments(SearchApartmentsRequest(city="Aarhus C"))
+            saved = service.save_search_result_apartment(search.search_run.results[0])
+            apartment = saved.saved_apartment
+
+            baseline = service.refresh_watchlist(RefreshWatchlistRequest())
+
+            self.assertTrue(baseline.workspace_path.exists())
+            self.assertEqual(len(baseline.run.snapshots), 1)
+            self.assertEqual(baseline.run.changes, [])
+
+            service.save_apartment(
+                SaveApartmentRequest(
+                    listing_id=apartment.listing_id,
+                    source=apartment.source,
+                    url=apartment.url,
+                    title=apartment.title,
+                    address=apartment.address,
+                    asking_price_dkk=(apartment.asking_price_dkk or 0) - 50000,
+                    area_sqm=apartment.area_sqm,
+                    rooms=apartment.rooms,
+                    owner_cost_monthly_dkk=apartment.owner_cost_monthly_dkk,
+                    tags=apartment.tags,
+                )
+            )
+
+            refresh = service.refresh_watchlist(RefreshWatchlistRequest())
+
+            changed_fields = {change.field for change in refresh.run.changes}
+            self.assertIn("asking_price_dkk", changed_fields)
+            self.assertIn("price_per_sqm_dkk", changed_fields)
+            self.assertEqual(len(service.available_watchlist_snapshots()), 1)
+            self.assertEqual(len(service.available_watchlist_runs()), 2)
 
     def test_analyze_reports_imported_capture_assumption(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:

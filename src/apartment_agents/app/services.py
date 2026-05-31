@@ -30,6 +30,9 @@ from apartment_agents.models import (
     ListingSearchResult,
     ListingSearchRun,
     SavedApartment,
+    WatchlistChange,
+    WatchlistRun,
+    WatchlistSnapshot,
 )
 from apartment_agents.reports.comparison import (
     comparison_file_path,
@@ -111,6 +114,17 @@ class CompareApartmentsResult:
     comparison: ApartmentComparison
     comparison_markdown: str
     comparison_path: Path
+    workspace_path: Path
+
+
+@dataclass(slots=True)
+class RefreshWatchlistRequest:
+    saved_apartment_ids: list[str] | None = None
+
+
+@dataclass(slots=True)
+class RefreshWatchlistResult:
+    run: WatchlistRun
     workspace_path: Path
 
 
@@ -333,6 +347,51 @@ class AnalyzeApartmentService:
     def available_apartment_comparisons(self) -> list[ApartmentComparison]:
         return self.workspace_store.list_apartment_comparisons()
 
+    def refresh_watchlist(self, request: RefreshWatchlistRequest) -> RefreshWatchlistResult:
+        apartments = self._watchlist_apartments(request.saved_apartment_ids)
+        if not apartments:
+            raise ValueError("at least one saved apartment is required for watchlist tracking")
+
+        observed_at = datetime.now(timezone.utc)
+        previous_snapshots = {
+            snapshot.saved_id: snapshot
+            for snapshot in self.workspace_store.list_watchlist_snapshots()
+        }
+        snapshots = [
+            _watchlist_snapshot_from_saved_apartment(apartment, observed_at)
+            for apartment in apartments
+        ]
+        changes: list[WatchlistChange] = []
+        for snapshot in snapshots:
+            previous = previous_snapshots.get(snapshot.saved_id)
+            if previous is not None:
+                changes.extend(_watchlist_changes(previous, snapshot, observed_at))
+            self.workspace_store.save_watchlist_snapshot(snapshot)
+
+        run = WatchlistRun(
+            run_id=_watchlist_run_id(snapshots, observed_at),
+            snapshots=snapshots,
+            changes=changes,
+            generated_at=observed_at,
+        )
+        workspace_path = self.workspace_store.save_watchlist_run(run)
+        log_kv(
+            logger,
+            20,
+            "watchlist_refreshed",
+            run_id=run.run_id,
+            snapshot_count=len(run.snapshots),
+            change_count=len(run.changes),
+            path=str(workspace_path),
+        )
+        return RefreshWatchlistResult(run=run, workspace_path=workspace_path)
+
+    def available_watchlist_runs(self) -> list[WatchlistRun]:
+        return self.workspace_store.list_watchlist_runs()
+
+    def available_watchlist_snapshots(self) -> list[WatchlistSnapshot]:
+        return self.workspace_store.list_watchlist_snapshots()
+
     def save_buyer_profile(self, profile: BuyerProfile) -> Path:
         path = self.workspace_store.save_buyer_profile(profile)
         log_kv(
@@ -400,6 +459,18 @@ class AnalyzeApartmentService:
             ),
             missing_evidence=missing_evidence,
         )
+
+    def _watchlist_apartments(self, saved_ids: list[str] | None) -> list[SavedApartment]:
+        if saved_ids is None:
+            return self.available_saved_apartments()
+        apartments = []
+        seen_ids = set()
+        for saved_id in saved_ids:
+            if saved_id in seen_ids:
+                continue
+            apartments.append(self.workspace_store.load_saved_apartment(saved_id))
+            seen_ids.add(saved_id)
+        return apartments
 
 
 def _saved_apartment_id(source: str, listing_id: str) -> str:
@@ -527,3 +598,71 @@ def _comparison_summary(
         "because the comparison favors finance approval, safe purchase price gap, "
         "lower price per m2, usable area, and fewer missing evidence fields."
     )
+
+
+def _watchlist_run_id(snapshots: list[WatchlistSnapshot], generated_at: datetime) -> str:
+    timestamp = generated_at.strftime("%Y%m%d%H%M%S")
+    digest = hashlib.sha1(
+        "|".join([generated_at.isoformat(), *[snapshot.saved_id for snapshot in snapshots]]).encode(
+            "utf-8"
+        )
+    ).hexdigest()[:8]
+    return f"watchlist-{timestamp}-{digest}"
+
+
+def _watchlist_snapshot_from_saved_apartment(
+    apartment: SavedApartment, observed_at: datetime
+) -> WatchlistSnapshot:
+    return WatchlistSnapshot(
+        saved_id=apartment.saved_id,
+        listing_id=apartment.listing_id,
+        source=apartment.source,
+        title=apartment.title,
+        address=apartment.address,
+        url=apartment.url,
+        asking_price_dkk=apartment.asking_price_dkk,
+        area_sqm=apartment.area_sqm,
+        rooms=apartment.rooms,
+        owner_cost_monthly_dkk=apartment.owner_cost_monthly_dkk,
+        price_per_sqm_dkk=apartment.price_per_sqm_dkk,
+        observed_at=observed_at,
+    )
+
+
+def _watchlist_changes(
+    previous: WatchlistSnapshot,
+    current: WatchlistSnapshot,
+    detected_at: datetime,
+) -> list[WatchlistChange]:
+    tracked_fields = [
+        "title",
+        "url",
+        "asking_price_dkk",
+        "area_sqm",
+        "rooms",
+        "owner_cost_monthly_dkk",
+        "price_per_sqm_dkk",
+    ]
+    changes = []
+    for field in tracked_fields:
+        old_value = getattr(previous, field)
+        new_value = getattr(current, field)
+        if old_value != new_value:
+            changes.append(
+                WatchlistChange(
+                    change_id=_watchlist_change_id(current.saved_id, field, detected_at),
+                    saved_id=current.saved_id,
+                    field=field,
+                    old_value=old_value,
+                    new_value=new_value,
+                    detected_at=detected_at,
+                )
+            )
+    return changes
+
+
+def _watchlist_change_id(saved_id: str, field: str, detected_at: datetime) -> str:
+    digest = hashlib.sha1(
+        "|".join([saved_id, field, detected_at.isoformat()]).encode("utf-8")
+    ).hexdigest()[:8]
+    return f"change-{digest}"

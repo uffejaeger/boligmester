@@ -9,6 +9,7 @@ from apartment_agents.app.services import (
     AnalyzeApartmentRequest,
     AnalyzeApartmentService,
     CompareApartmentsRequest,
+    RefreshWatchlistRequest,
     SearchApartmentsRequest,
 )
 from apartment_agents.models import (
@@ -16,6 +17,7 @@ from apartment_agents.models import (
     HouseholdProfile,
     ListingSearchResult,
     SavedApartment,
+    WatchlistRun,
 )
 
 try:
@@ -119,14 +121,14 @@ MENU_ENTRIES = [
     MenuEntry(
         key="watchlist",
         namespace="default",
-        name="saved-apartments",
+        name="watchlist",
         ready="1/1",
         status="Running",
-        kind="Store",
-        summary="Save apartments and revisit them.",
+        kind="Workflow",
+        summary="Track saved apartments and surface changes.",
         detail=(
-            "Saved apartments are stored locally and can be reopened in the URL analyzer. "
-            "Change tracking remains a later watchlist workflow."
+            "Saved apartments are stored locally, watchlist refreshes capture field snapshots, "
+            "and changed tracked signals are saved to the workspace."
         ),
     ),
     MenuEntry(
@@ -189,6 +191,16 @@ def _format_optional_rooms(value: float | None) -> str:
     if value is None:
         return "-"
     return f"{value:g}"
+
+
+def _format_watchlist_value(field: str, value: object | None) -> str:
+    if value is None:
+        return "-"
+    if isinstance(value, int) and (field.endswith("_dkk") or field == "price_per_sqm_dkk"):
+        return _format_dkk(value)
+    if isinstance(value, float):
+        return f"{value:g}"
+    return str(value)
 
 
 def _profile_options(profiles: list[BuyerProfile]) -> list[tuple[str, str]]:
@@ -296,6 +308,8 @@ class CommandTable(DataTable):
             self.app.screen.action_analyze_selected()
         elif row_key.value == "compare-apartments":
             asyncio.create_task(self.app.screen.action_run_comparison())
+        elif row_key.value == "refresh-watchlist":
+            asyncio.create_task(self.app.screen.action_refresh_watchlist())
         elif row_key.value == "save":
             asyncio.create_task(self.app.screen.action_save_profile())
 
@@ -305,7 +319,7 @@ class MenuScreen(Screen[None]):
         Binding("1", "open_analyzer", "Analyze"),
         Binding("2", "open_search", "Search"),
         Binding("5", "open_compare", "Compare"),
-        Binding("6", "open_watchlist", "Saved"),
+        Binding("6", "open_watchlist", "Watch"),
         Binding("p", "open_profiles", "Profiles"),
         Binding("9", "open_profiles", "Profiles"),
         Binding("7", "open_reports", "Reports"),
@@ -339,7 +353,7 @@ class MenuScreen(Screen[None]):
                 ("1", "Analyze"),
                 ("2", "Search"),
                 ("5", "Compare"),
-                ("6", "Saved"),
+                ("6", "Watch"),
                 ("p", "Profiles"),
                 ("7", "Reports"),
                 ("esc", "Back"),
@@ -668,6 +682,7 @@ class SearchScreen(Screen[None]):
 class SavedApartmentsScreen(Screen[None]):
     BINDINGS = [
         Binding("a", "analyze_selected", "Analyze"),
+        Binding("r", "refresh_watchlist", "Refresh"),
     ]
 
     def __init__(self, service: AnalyzeApartmentService) -> None:
@@ -677,16 +692,17 @@ class SavedApartmentsScreen(Screen[None]):
 
     def compose(self) -> ComposeResult:
         yield Vertical(
-            _top_bar("workspace/saved-apartments", self.service),
+            _top_bar("workspace/watchlist", self.service),
             Horizontal(
                 Vertical(
-                    Static("SAVED APARTMENTS", classes="pane-title"),
+                    Static("WATCHLIST", classes="pane-title"),
                     DataTable(
                         id="saved-apartments",
                         cursor_type="row",
                         show_row_labels=False,
                         zebra_stripes=True,
                     ),
+                    Static("", id="watchlist-status", classes="status-line"),
                     classes="resource-pane",
                 ),
                 Vertical(
@@ -700,6 +716,7 @@ class SavedApartmentsScreen(Screen[None]):
                 ("up/down", "Move"),
                 ("enter", "Analyze"),
                 ("a", "Analyze selected"),
+                ("r", "Refresh tracking"),
                 ("esc", "Back"),
                 ("q", "Quit"),
             ),
@@ -711,15 +728,14 @@ class SavedApartmentsScreen(Screen[None]):
         table.add_column("ADDRESS", width=30)
         table.add_column("PRICE", width=14)
         table.add_column("AREA", width=9)
+        table.add_column("WATCH", width=10)
         table.add_column("TAGS", width=14)
+        self._refresh_saved_apartments_table()
         apartments = self.service.available_saved_apartments()
-        for apartment in apartments:
-            table.add_row(
-                apartment.address.street,
-                _format_optional_dkk(apartment.asking_price_dkk),
-                _format_optional_sqm(apartment.area_sqm),
-                ", ".join(apartment.tags) or "-",
-                key=apartment.saved_id,
+        latest_run = next(iter(self.service.available_watchlist_runs()), None)
+        if latest_run is not None:
+            self.query_one("#watchlist-status", Static).update(
+                f"last refresh: {len(latest_run.changes)} changes"
             )
         if apartments:
             self._selected_id = apartments[0].saved_id
@@ -746,6 +762,44 @@ class SavedApartmentsScreen(Screen[None]):
             self.query_one("#saved-apartment-detail", Static).update("No saved apartment selected.")
             return
         self.app.push_screen(AnalyzeScreen(self.service, initial_listing_url=apartment.url))
+
+    async def action_refresh_watchlist(self) -> None:
+        status = self.query_one("#watchlist-status", Static)
+        status.update(Text("refreshing watchlist", style="bold #ffd166"))
+        try:
+            result = await asyncio.to_thread(
+                self.service.refresh_watchlist,
+                RefreshWatchlistRequest(),
+            )
+        except Exception as exc:
+            status.update(Text(f"watchlist error: {exc}", style="bold #ff6b6b"))
+            return
+
+        self._refresh_saved_apartments_table()
+        status.update(
+            Text(
+                f"watchlist refresh: {len(result.run.changes)} changes",
+                style="bold #7ddf64",
+            )
+        )
+        self._show_watchlist_run(result.run)
+
+    def _refresh_saved_apartments_table(self) -> None:
+        table = self.query_one("#saved-apartments", DataTable)
+        table.clear()
+        snapshot_ids = {
+            snapshot.saved_id for snapshot in self.service.available_watchlist_snapshots()
+        }
+        apartments = self.service.available_saved_apartments()
+        for apartment in apartments:
+            table.add_row(
+                apartment.address.street,
+                _format_optional_dkk(apartment.asking_price_dkk),
+                _format_optional_sqm(apartment.area_sqm),
+                "tracked" if apartment.saved_id in snapshot_ids else "new",
+                ", ".join(apartment.tags) or "-",
+                key=apartment.saved_id,
+            )
 
     def _show_saved_apartment_detail(self, saved_id: str) -> None:
         apartment = next(
@@ -774,6 +828,34 @@ class SavedApartmentsScreen(Screen[None]):
                 ]
             )
         )
+
+    def _show_watchlist_run(self, run: WatchlistRun) -> None:
+        if not run.changes:
+            self.query_one("#saved-apartment-detail", Static).update(
+                "\n".join(
+                    [
+                        f"[b]{run.run_id}[/b]",
+                        f"Snapshots: {len(run.snapshots)}",
+                        "Changes: 0",
+                        "",
+                        "No tracked field changes since the previous refresh.",
+                    ]
+                )
+            )
+            return
+        lines = [
+            f"[b]{run.run_id}[/b]",
+            f"Snapshots: {len(run.snapshots)}",
+            f"Changes: {len(run.changes)}",
+            "",
+        ]
+        for change in run.changes:
+            lines.append(
+                f"{change.saved_id}  {change.field}: "
+                f"{_format_watchlist_value(change.field, change.old_value)} -> "
+                f"{_format_watchlist_value(change.field, change.new_value)}"
+            )
+        self.query_one("#saved-apartment-detail", Static).update("\n".join(lines))
 
     def _selected_apartment(self) -> SavedApartment | None:
         if self._selected_id is None:
