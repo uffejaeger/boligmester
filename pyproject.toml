@@ -28,7 +28,7 @@ browser = [
   "playwright>=1.0",
 ]
 tui = [
-  "textual>=0.70",
+  "textual>=8.2",
 ]
 
 [project.scripts]
