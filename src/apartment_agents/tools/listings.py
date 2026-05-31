@@ -32,6 +32,7 @@ class ListingIngestionService:
     fixture_store: FixtureStore
     config: AppConfig | None = None
     fetcher: HttpPageFetcher | None = None
+    prefer_captured_listings: bool = False
     parsers: dict[str, ListingParser] = field(init=False)
 
     def __post_init__(self) -> None:
@@ -44,11 +45,7 @@ class ListingIngestionService:
     def parse_listing_url(self, url: str) -> Listing:
         normalized_url, source_name = self._validate_url(url)
         try:
-            document = self.fixture_store.load_listing_document(normalized_url)
-            log_kv(logger, 20, "listing_fixture_loaded", url=normalized_url, source=source_name)
-            ingestion_source = "fixture"
-        except FixtureNotFoundError:
-            try:
+            if self.prefer_captured_listings:
                 capture_name, document = self.fixture_store.load_captured_listing_document(
                     normalized_url
                 )
@@ -61,6 +58,35 @@ class ListingIngestionService:
                     document=capture_name,
                 )
                 ingestion_source = "captured_listing"
+            else:
+                document = self.fixture_store.load_listing_document(normalized_url)
+                log_kv(logger, 20, "listing_fixture_loaded", url=normalized_url, source=source_name)
+                ingestion_source = "fixture"
+        except FixtureNotFoundError:
+            try:
+                if self.prefer_captured_listings:
+                    document = self.fixture_store.load_listing_document(normalized_url)
+                    log_kv(
+                        logger,
+                        20,
+                        "listing_fixture_loaded",
+                        url=normalized_url,
+                        source=source_name,
+                    )
+                    ingestion_source = "fixture"
+                else:
+                    capture_name, document = self.fixture_store.load_captured_listing_document(
+                        normalized_url
+                    )
+                    log_kv(
+                        logger,
+                        20,
+                        "listing_capture_loaded",
+                        url=normalized_url,
+                        source=source_name,
+                        document=capture_name,
+                    )
+                    ingestion_source = "captured_listing"
             except FixtureNotFoundError:
                 if not self.config or not self.config.enable_live_listing_fetch:
                     raise ListingIngestionError(

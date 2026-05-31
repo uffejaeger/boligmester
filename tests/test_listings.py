@@ -31,6 +31,18 @@ class ListingIngestionServiceTest(unittest.TestCase):
         self.assertEqual(listing.asking_price_dkk, 3698000)
         self.assertEqual(listing.raw_payload["ingestion_source"], "captured_listing")
 
+    def test_prefer_captured_mode_uses_capture_before_fixture(self) -> None:
+        service = ListingIngestionService(
+            FixtureStore(),
+            prefer_captured_listings=True,
+        )
+
+        listing = service.parse_listing_url(
+            "https://www.boligsiden.dk/adresse/odensegade-21-3-th-8000-aarhus-c-07510157___21___3____th"
+        )
+
+        self.assertEqual(listing.raw_payload["ingestion_source"], "captured_listing")
+
     def test_rejects_unsupported_domain(self) -> None:
         with self.assertRaises(UnsupportedListingDomainError):
             self.service.parse_listing_url("https://example.com/apartment/123")

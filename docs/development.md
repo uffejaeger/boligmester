@@ -89,6 +89,15 @@ That writes a timestamped JSON report under `output/validation/`.
 
 Use `--stdout-json` to print the full JSON report as well.
 
+To prefer imported captured HTML deliberately before fixtures during validation:
+
+```bash
+PYTHONPATH=src python3 scripts/run_validation_set.py \
+  examples/validation/aarhus_urls.txt \
+  --buyer-profile-id solo_engineer \
+  --listing-source-mode imported_capture_preferred
+```
+
 ## Imported Listing Captures
 
 Import a saved listing HTML capture into the regression set:

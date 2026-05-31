@@ -130,10 +130,12 @@ class ValidationHarnessTest(unittest.TestCase):
             ],
             buyer_profile_id="solo_engineer",
             input_label="examples/validation/aarhus_urls.txt",
+            listing_source_mode="imported_capture_preferred",
         )
 
         self.assertEqual(report.buyer_profile_id, "solo_engineer")
         self.assertEqual(report.summary.total, 1)
+        self.assertEqual(report.listing_source_mode, "imported_capture_preferred")
 
     def test_validation_cli_persists_timestamped_output_by_default(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -201,6 +203,45 @@ class ValidationHarnessTest(unittest.TestCase):
             self.assertEqual(exit_code, 0)
             self.assertTrue(explicit_output.exists())
             self.assertEqual(payload["summary"]["total"], 1)
+
+    def test_validation_cli_can_run_in_imported_capture_preferred_mode(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            output_dir = Path(tmpdir) / "output"
+            url_file = Path(tmpdir) / "urls.txt"
+            url_file.write_text(
+                "https://www.boligsiden.dk/adresse/odensegade-21-3-th-8000-aarhus-c-07510157___21___3____th\n",
+                encoding="utf-8",
+            )
+            with (
+                patch.dict(
+                    os.environ,
+                    {
+                        "ADK_BACKEND": "mock",
+                        "REPORT_OUTPUT_DIR": str(output_dir),
+                        "LOG_LEVEL": "ERROR",
+                    },
+                    clear=False,
+                ),
+                patch("sys.stdout", new_callable=StringIO) as stdout,
+            ):
+                exit_code = main(
+                    [
+                        str(url_file),
+                        "--buyer-profile-id",
+                        "solo_engineer",
+                        "--listing-source-mode",
+                        "imported_capture_preferred",
+                    ]
+                )
+
+            written = sorted(output_dir.glob("validation/*imported_capture_preferred*.json"))
+            payload = json.loads(written[0].read_text(encoding="utf-8"))
+
+            self.assertEqual(exit_code, 0)
+            self.assertEqual(len(written), 1)
+            self.assertIn("imported_capture_preferred", stdout.getvalue())
+            self.assertEqual(payload["listing_source_mode"], "imported_capture_preferred")
+            self.assertEqual(payload["results"][0]["status"], "imported_capture")
 
     @staticmethod
     def _result(**kwargs):

@@ -35,6 +35,7 @@ class ValidationBatchReport:
     generated_at: str
     buyer_profile_id: str
     input_label: str | None
+    listing_source_mode: str
     results: list[ValidationRunResult]
     summary: ValidationSummary
 
@@ -135,11 +136,13 @@ def build_batch_report(
     *,
     buyer_profile_id: str,
     input_label: str | None = None,
+    listing_source_mode: str = "default",
 ) -> ValidationBatchReport:
     return ValidationBatchReport(
         generated_at=datetime.now(timezone.utc).isoformat(),
         buyer_profile_id=buyer_profile_id,
         input_label=input_label,
+        listing_source_mode=listing_source_mode,
         results=results,
         summary=summarize_results(results),
     )
