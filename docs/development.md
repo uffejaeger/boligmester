@@ -46,6 +46,16 @@ export BROWSER_LISTING_FETCH_COMMAND='python3 scripts/fetch_rendered_listing.py 
 
 The command must contain `{url}` and print the final page HTML to stdout.
 
+If you need a session-backed browser context, point the runtime at a Playwright storage-state file:
+
+```bash
+export BROWSER_STORAGE_STATE_PATH=/absolute/path/to/storage-state.json
+```
+
+The bundled script also accepts `--storage-state`, so custom commands may pass
+`{storage_state_path}` explicitly if they prefer argv over environment variables.
+Treat the storage-state file like a secret and keep it out of git.
+
 ## Run
 
 Start the terminal app:

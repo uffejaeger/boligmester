@@ -24,6 +24,7 @@ class AppConfig:
     enable_browser_listing_fetch: bool = False
     browser_fetch_timeout_seconds: int = 45
     browser_listing_fetch_command: str | None = None
+    browser_storage_state_path: Path | None = None
     openai_api_key: str | None = None
     google_api_key: str | None = None
 
@@ -58,6 +59,7 @@ class AppConfig:
             in {"1", "true", "yes"},
             browser_fetch_timeout_seconds=int(os.getenv("BROWSER_FETCH_TIMEOUT_SECONDS", "45")),
             browser_listing_fetch_command=os.getenv("BROWSER_LISTING_FETCH_COMMAND") or None,
+            browser_storage_state_path=_optional_path_from_env("BROWSER_STORAGE_STATE_PATH"),
             openai_api_key=os.getenv("OPENAI_API_KEY") or None,
             google_api_key=os.getenv("GOOGLE_API_KEY") or None,
         )
@@ -86,3 +88,17 @@ class AppConfig:
             raise ConfigValidationError(
                 "BROWSER_LISTING_FETCH_COMMAND must contain a {url} placeholder."
             )
+        if (
+            self.browser_storage_state_path is not None
+            and not self.browser_storage_state_path.is_file()
+        ):
+            raise ConfigValidationError(
+                "BROWSER_STORAGE_STATE_PATH must point to an existing file."
+            )
+
+
+def _optional_path_from_env(name: str) -> Path | None:
+    value = os.getenv(name)
+    if not value:
+        return None
+    return Path(value).expanduser()

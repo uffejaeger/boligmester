@@ -134,6 +134,7 @@ class ListingIngestionService:
             browser_fetcher = BrowserCommandPageFetcher(
                 command_template=self.config.browser_listing_fetch_command or "",
                 timeout_seconds=self.config.browser_fetch_timeout_seconds,
+                storage_state_path=self.config.browser_storage_state_path,
             )
             return BlockedPageFallbackFetcher(
                 primary=primary,
