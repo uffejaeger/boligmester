@@ -1,4 +1,6 @@
 import unittest
+from pathlib import Path
+from tempfile import TemporaryDirectory
 from unittest.mock import patch
 
 from apartment_agents.app.errors import (
@@ -45,6 +47,29 @@ class BrowserCommandPageFetcherTest(unittest.TestCase):
         with patch("subprocess.run", return_value=Result()):
             with self.assertRaises(ListingFetchError):
                 fetcher.fetch_text("https://www.boligsiden.dk/adresse/test")
+
+    def test_forwards_storage_state_path_in_env_and_placeholder(self) -> None:
+        class Result:
+            returncode = 0
+            stdout = "<html><body>Apartment</body></html>"
+            stderr = ""
+
+        with TemporaryDirectory() as tmpdir:
+            storage_state = Path(tmpdir) / "state.json"
+            storage_state.write_text("{}", encoding="utf-8")
+            with patch("shutil.which", return_value="/usr/bin/python3"):
+                fetcher = BrowserCommandPageFetcher(
+                    command_template=(
+                        "python3 script.py {url} --storage-state {storage_state_path}"
+                    ),
+                    timeout_seconds=5,
+                    storage_state_path=storage_state,
+                )
+            with patch("subprocess.run", return_value=Result()) as run_mock:
+                fetcher.fetch_text("https://www.boligsiden.dk/adresse/test")
+
+        self.assertIn(str(storage_state), run_mock.call_args.kwargs["env"]["BROWSER_STORAGE_STATE_PATH"])
+        self.assertIn(str(storage_state), run_mock.call_args.args[0])
 
 
 class BlockedPageFallbackFetcherTest(unittest.TestCase):

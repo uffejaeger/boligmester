@@ -50,6 +50,15 @@ class AppConfigTest(unittest.TestCase):
                     browser_listing_fetch_command="python3 script.py",
                 )
 
+    def test_browser_storage_state_path_must_exist(self) -> None:
+        with TemporaryDirectory() as tmpdir:
+            with self.assertRaises(ConfigValidationError):
+                AppConfig(
+                    output_dir=Path(tmpdir),
+                    adk_backend="mock",
+                    browser_storage_state_path=Path(tmpdir) / "missing.json",
+                )
+
 
 if __name__ == "__main__":
     unittest.main()
