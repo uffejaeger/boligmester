@@ -16,6 +16,7 @@ The first workspace version stores:
 
 * buyer profiles in `buyer_profiles/*.json`
 * apartment search runs in `search_runs/*.json`
+* saved apartments in `saved_apartments/*.json`
 * analysis run metadata in `analysis_runs/*.json`
 
 Generated Markdown reports still live under `REPORT_OUTPUT_DIR` and analysis run
@@ -36,8 +37,14 @@ saved with their input criteria and structured result rows. Those rows are the
 local persistence boundary for later comparison, ranking, and watchlist
 features.
 
+## Saved Apartments
+
+From the Textual TUI search screen, press `s` to save the selected apartment.
+Press `6` from the main resource menu to revisit saved apartments and open one in
+the URL analyzer.
+
 ## Current Limits
 
-The workspace does not yet store saved apartments, watchlists, report
-annotations, or dashboard state. Those are the next product workflow layers on
-top of this persistence boundary.
+The workspace does not yet store watchlist change tracking, report annotations,
+or dashboard state. Those are the next product workflow layers on top of this
+persistence boundary.

@@ -16,6 +16,7 @@ from apartment_agents.models import (
     ListingSearchCriteria,
     ListingSearchResult,
     ListingSearchRun,
+    SavedApartment,
 )
 
 
@@ -39,12 +40,14 @@ class LocalWorkspaceStore:
         self.buyer_profiles_dir = self.root / "buyer_profiles"
         self.analysis_runs_dir = self.root / "analysis_runs"
         self.search_runs_dir = self.root / "search_runs"
+        self.saved_apartments_dir = self.root / "saved_apartments"
         self.ensure_directories()
 
     def ensure_directories(self) -> None:
         self.buyer_profiles_dir.mkdir(parents=True, exist_ok=True)
         self.analysis_runs_dir.mkdir(parents=True, exist_ok=True)
         self.search_runs_dir.mkdir(parents=True, exist_ok=True)
+        self.saved_apartments_dir.mkdir(parents=True, exist_ok=True)
 
     def save_buyer_profile(self, profile: BuyerProfile) -> Path:
         self._validate_safe_id(profile.buyer_id, "Buyer profile id")
@@ -104,6 +107,29 @@ class LocalWorkspaceStore:
         for path in sorted(self.search_runs_dir.glob("*.json")):
             searches.append(self._listing_search_from_payload(self._read_json(path)))
         return searches
+
+    def save_saved_apartment(self, apartment: SavedApartment) -> Path:
+        self._validate_safe_id(apartment.saved_id, "Saved apartment id")
+        path = self.saved_apartments_dir / f"{apartment.saved_id}.json"
+        self._write_json(path, self._saved_apartment_to_payload(apartment))
+        return path
+
+    def load_saved_apartment(self, saved_id: str) -> SavedApartment:
+        self._validate_safe_id(saved_id, "Saved apartment id")
+        path = self.saved_apartments_dir / f"{saved_id}.json"
+        try:
+            payload = self._read_json(path)
+        except FileNotFoundError as exc:
+            raise WorkspacePersistenceError(
+                f"Workspace saved apartment does not exist: {saved_id}"
+            ) from exc
+        return self._saved_apartment_from_payload(payload)
+
+    def list_saved_apartments(self) -> list[SavedApartment]:
+        apartments = []
+        for path in sorted(self.saved_apartments_dir.glob("*.json")):
+            apartments.append(self._saved_apartment_from_payload(self._read_json(path)))
+        return sorted(apartments, key=lambda apartment: apartment.saved_at, reverse=True)
 
     def _validate_safe_id(self, value: str, label: str) -> None:
         if not SAFE_ID_PATTERN.fullmatch(value):
@@ -226,6 +252,48 @@ class LocalWorkspaceStore:
             area_sqm=payload.get("area_sqm"),
             rooms=payload.get("rooms"),
             owner_cost_monthly_dkk=payload.get("owner_cost_monthly_dkk"),
+            raw_payload=payload.get("raw_payload", {}),
+        )
+
+    def _saved_apartment_to_payload(self, apartment: SavedApartment) -> dict[str, Any]:
+        return {
+            "saved_id": apartment.saved_id,
+            "listing_id": apartment.listing_id,
+            "source": apartment.source,
+            "url": apartment.url,
+            "title": apartment.title,
+            "address": {
+                "street": apartment.address.street,
+                "postal_code": apartment.address.postal_code,
+                "city": apartment.address.city,
+                "municipality": apartment.address.municipality,
+                "country_code": apartment.address.country_code,
+            },
+            "asking_price_dkk": apartment.asking_price_dkk,
+            "area_sqm": apartment.area_sqm,
+            "rooms": apartment.rooms,
+            "owner_cost_monthly_dkk": apartment.owner_cost_monthly_dkk,
+            "notes": apartment.notes,
+            "tags": apartment.tags,
+            "saved_at": apartment.saved_at.isoformat(),
+            "raw_payload": apartment.raw_payload,
+        }
+
+    def _saved_apartment_from_payload(self, payload: dict[str, Any]) -> SavedApartment:
+        return SavedApartment(
+            saved_id=payload["saved_id"],
+            listing_id=payload["listing_id"],
+            source=payload["source"],
+            url=payload["url"],
+            title=payload["title"],
+            address=Address(**payload["address"]),
+            asking_price_dkk=payload.get("asking_price_dkk"),
+            area_sqm=payload.get("area_sqm"),
+            rooms=payload.get("rooms"),
+            owner_cost_monthly_dkk=payload.get("owner_cost_monthly_dkk"),
+            notes=payload.get("notes"),
+            tags=payload.get("tags", []),
+            saved_at=_datetime_from_iso(payload["saved_at"]),
             raw_payload=payload.get("raw_payload", {}),
         )
 
