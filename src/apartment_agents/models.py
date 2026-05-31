@@ -60,6 +60,50 @@ class Listing:
 
 
 @dataclass(slots=True)
+class ListingSearchCriteria:
+    city: str
+    source: str = "boligsiden"
+    property_type: str = "ejerlejlighed"
+    query: str | None = None
+    min_price_dkk: int | None = None
+    max_price_dkk: int | None = None
+    min_area_sqm: float | None = None
+    max_area_sqm: float | None = None
+    min_rooms: float | None = None
+    max_results: int = 20
+    search_url: str | None = None
+
+
+@dataclass(slots=True)
+class ListingSearchResult:
+    listing_id: str
+    source: str
+    url: str
+    title: str
+    address: Address
+    asking_price_dkk: int | None = None
+    area_sqm: float | None = None
+    rooms: float | None = None
+    owner_cost_monthly_dkk: int | None = None
+    raw_payload: dict[str, Any] = field(default_factory=dict)
+    citations: list[SourceCitation] = field(default_factory=list)
+
+    @property
+    def price_per_sqm_dkk(self) -> int | None:
+        if self.asking_price_dkk is None or self.area_sqm in {None, 0}:
+            return None
+        return round(self.asking_price_dkk / self.area_sqm)
+
+
+@dataclass(slots=True)
+class ListingSearchRun:
+    search_id: str
+    criteria: ListingSearchCriteria
+    results: list[ListingSearchResult]
+    generated_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+
+
+@dataclass(slots=True)
 class HouseholdProfile:
     adults: int
     children: int = 0

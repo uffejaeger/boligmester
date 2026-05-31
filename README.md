@@ -17,15 +17,16 @@ Current implementation includes:
 * calibrated Danish finance screening assumptions
 * listing ingestion with fixture, live-fetch, browser-fallback, and imported-capture paths
 * manifest-backed listing regression fixtures
+* apartment search workflow with fixture/live-fetch parsing and local persistence
 * a validation harness for real-world URL sets
 * an explicit top-level analysis workflow graph with deterministic nodes and an ADK agent boundary
-* a terminal UI for the first analysis flow
-* local workspace persistence for buyer profiles and analysis run metadata
+* a terminal UI for URL analysis, apartment search, and buyer profiles
+* local workspace persistence for buyer profiles, search runs, and analysis run metadata
 
 Still in progress:
 
 * web productization and hosted workflows
-* property search, saved apartments, graph views, and watchlists
+* saved apartments, graph views, and watchlists
 
 ## Read Next
 
@@ -38,6 +39,7 @@ Still in progress:
 * [Finance policy calibration](docs/finance-policy.md)
 * [MVP validation notes](docs/mvp-validation-aarhus.md)
 * [Local workspace](docs/local-workspace.md)
+* [Apartment search workflow](docs/search-workflow.md)
 
 ## Repository Layout
 

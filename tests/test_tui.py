@@ -30,7 +30,7 @@ class TuiTest(unittest.TestCase):
         screen = render_placeholder_screen("2")
 
         self.assertIn("Search Apartments", screen)
-        self.assertIn("Status: Planned", screen)
+        self.assertIn("Status: Available", screen)
 
     def test_render_placeholder_screen_for_profiles(self) -> None:
         screen = render_placeholder_screen("9")
@@ -172,6 +172,43 @@ class TuiTest(unittest.TestCase):
                 profile = service.fixture_store.load_buyer_profile("tui_profile")
                 self.assertEqual(profile.household.monthly_childcare_cost_dkk, 2500)
                 self.assertEqual(profile.household.vehicles, 1)
+
+        asyncio.run(scenario())
+
+    @unittest.skipUnless(BoligmesterApp is not None, "Textual is an optional TUI extra")
+    def test_textual_search_screen_searches_and_opens_analyzer(self) -> None:
+        async def scenario() -> None:
+            with TemporaryDirectory() as tmpdir:
+                service = AnalyzeApartmentService(
+                    config=AppConfig(output_dir=Path(tmpdir), adk_backend="mock")
+                )
+                app = BoligmesterApp(service)
+
+                async with app.run_test(size=(110, 34)) as pilot:
+                    await pilot.pause(0.1)
+                    await pilot.press("2")
+                    await pilot.pause(0.1)
+
+                    app.screen.query_one("#search-max-price", Input).value = "3700000"
+                    app.screen.query_one("#search-min-area", Input).value = "50"
+                    await app.screen.action_run_search()
+                    await pilot.pause(0.1)
+
+                    status = app.screen.query_one("#search-status", Static)
+                    results = app.screen.query_one("#search-results", DataTable)
+                    self.assertEqual(str(status.content), "search complete: 2 results saved")
+                    self.assertEqual(results.row_count, 2)
+
+                    app.screen.action_analyze_selected()
+                    await pilot.pause(0.1)
+
+                    listing_url = app.screen.query_one("#listing-url", Input).value
+
+                self.assertEqual(
+                    listing_url,
+                    "https://www.boligsiden.dk/adresse/frederiks-alle-12-3-th-8000-aarhus-c",
+                )
+                self.assertEqual(len(service.available_listing_searches()), 1)
 
         asyncio.run(scenario())
 

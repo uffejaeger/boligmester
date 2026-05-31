@@ -16,10 +16,16 @@ from apartment_agents.config import AppConfig
 from apartment_agents.finance.models import FinanceResult
 from apartment_agents.finance.service import FinanceBoundary
 from apartment_agents.logging import get_logger, log_kv
-from apartment_agents.models import AnalysisReport, BuyerProfile
+from apartment_agents.models import (
+    AnalysisReport,
+    BuyerProfile,
+    ListingSearchCriteria,
+    ListingSearchRun,
+)
 from apartment_agents.storage.fixtures import FixtureStore
 from apartment_agents.storage.workspace import LocalWorkspaceStore
 from apartment_agents.tools.listings import ListingIngestionService
+from apartment_agents.tools.search import ListingSearchService
 
 logger = get_logger("services")
 
@@ -38,12 +44,34 @@ class AnalyzeApartmentResult:
     report_path: Path
 
 
+@dataclass(slots=True)
+class SearchApartmentsRequest:
+    city: str
+    source: str = "boligsiden"
+    property_type: str = "ejerlejlighed"
+    query: str | None = None
+    min_price_dkk: int | None = None
+    max_price_dkk: int | None = None
+    min_area_sqm: float | None = None
+    max_area_sqm: float | None = None
+    min_rooms: float | None = None
+    max_results: int = 20
+    search_url: str | None = None
+
+
+@dataclass(slots=True)
+class SearchApartmentsResult:
+    search_run: ListingSearchRun
+    workspace_path: Path
+
+
 class AnalyzeApartmentService:
     def __init__(
         self,
         config: AppConfig,
         fixture_store: FixtureStore | None = None,
         listing_ingestion: ListingIngestionService | None = None,
+        listing_search: ListingSearchService | None = None,
         finance_boundary: FinanceBoundary | None = None,
         adk_runner: AdkAnalysisRunner | None = None,
         workspace_store: LocalWorkspaceStore | None = None,
@@ -54,6 +82,10 @@ class AnalyzeApartmentService:
         self.fixture_store = fixture_store or FixtureStore()
         self.fixture_store.prepend_buyer_profile_root(self.workspace_store.buyer_profiles_dir)
         self.listing_ingestion = listing_ingestion or ListingIngestionService(
+            self.fixture_store,
+            config=config,
+        )
+        self.listing_search = listing_search or ListingSearchService(
             self.fixture_store,
             config=config,
         )
@@ -108,6 +140,45 @@ class AnalyzeApartmentService:
 
     def available_buyer_profiles(self) -> list[BuyerProfile]:
         return self.fixture_store.list_buyer_profiles()
+
+    def search_apartments(self, request: SearchApartmentsRequest) -> SearchApartmentsResult:
+        log_kv(
+            logger,
+            20,
+            "apartment_search_started",
+            city=request.city,
+            source=request.source,
+            property_type=request.property_type,
+        )
+        search_run = self.listing_search.search(
+            ListingSearchCriteria(
+                city=request.city,
+                source=request.source,
+                property_type=request.property_type,
+                query=request.query,
+                min_price_dkk=request.min_price_dkk,
+                max_price_dkk=request.max_price_dkk,
+                min_area_sqm=request.min_area_sqm,
+                max_area_sqm=request.max_area_sqm,
+                min_rooms=request.min_rooms,
+                max_results=request.max_results,
+                search_url=request.search_url,
+            )
+        )
+        path = self.workspace_store.save_listing_search(search_run)
+        log_kv(
+            logger,
+            20,
+            "apartment_search_persisted",
+            city=search_run.criteria.city,
+            result_count=len(search_run.results),
+            search_id=search_run.search_id,
+            path=str(path),
+        )
+        return SearchApartmentsResult(search_run=search_run, workspace_path=path)
+
+    def available_listing_searches(self) -> list[ListingSearchRun]:
+        return self.workspace_store.list_listing_searches()
 
     def save_buyer_profile(self, profile: BuyerProfile) -> Path:
         path = self.workspace_store.save_buyer_profile(profile)
