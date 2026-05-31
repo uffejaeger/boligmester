@@ -25,6 +25,12 @@ pip install -e '.[browser]'
 python -m playwright install chromium
 ```
 
+For the Textual TUI:
+
+```bash
+pip install -e '.[tui]'
+```
+
 ## Runtime Configuration
 
 Basic live configuration:
@@ -63,6 +69,8 @@ Start the terminal app:
 ```bash
 boligmester
 ```
+
+If you are running from a fresh venv, make sure the `tui` extra is installed first.
 
 The legacy entrypoint still works:
 

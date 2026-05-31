@@ -1,17 +1,27 @@
+import asyncio
 import unittest
 from pathlib import Path
 from tempfile import TemporaryDirectory
+from unittest.mock import patch
 
-from apartment_agents.config import AppConfig
 from apartment_agents.app.services import AnalyzeApartmentService
-from apartment_agents.tui.app import render_main_menu, render_placeholder_screen
+from apartment_agents.config import AppConfig
+from apartment_agents.tui.app import render_main_menu, render_placeholder_screen, run
+
+try:
+    from apartment_agents.tui.textual_ui import BoligmesterApp
+    from textual.widgets import DataTable, Static
+except ImportError:  # pragma: no cover - Textual is an optional extra
+    BoligmesterApp = None
+    DataTable = None
+    Static = None
 
 
 class TuiTest(unittest.TestCase):
     def test_render_main_menu_contains_primary_flow(self) -> None:
         menu = render_main_menu()
 
-        self.assertIn("ApartmentBuyingAgents DK", menu)
+        self.assertIn("Boligmester", menu)
         self.assertIn("1 Analyze Apartment URL", menu)
 
     def test_render_placeholder_screen_for_search(self) -> None:
@@ -25,81 +35,93 @@ class TuiTest(unittest.TestCase):
 
         self.assertIn("Unknown menu selection", screen)
 
-    def test_run_analyze_flow_prints_recommendation(self) -> None:
-        prompts = iter(
-            [
-                "1",
-                "https://www.boligsiden.dk/adresse/frederiks-alle-12-3-th-8000-aarhus-c",
-                "solo_engineer",
-            ]
-        )
-        outputs: list[str] = []
+    def test_run_delegates_to_textual_launcher(self) -> None:
+        launched = {}
 
-        def fake_input(_: str) -> str:
-            return next(prompts)
-
-        def fake_output(message: str) -> None:
-            outputs.append(message)
+        def fake_launcher(service: AnalyzeApartmentService) -> None:
+            launched["service"] = service
 
         with TemporaryDirectory() as tmpdir:
             service = AnalyzeApartmentService(
                 config=AppConfig(output_dir=Path(tmpdir), adk_backend="mock")
             )
-            from apartment_agents.tui import app
+            with patch(
+                "apartment_agents.tui.app._load_textual_launcher", return_value=fake_launcher
+            ):
+                run(service=service)
 
-            app.run(input_func=fake_input, output_func=fake_output, service=service)
+        self.assertIs(launched["service"], service)
 
-        joined = "\n".join(outputs)
-        self.assertIn("Recommendation: BUY", joined)
+    def test_run_initializes_service_when_none_is_provided(self) -> None:
+        launched = {}
 
-    def test_run_placeholder_flow_prints_planned_screen(self) -> None:
-        prompts = iter(["7"])
-        outputs: list[str] = []
+        def fake_launcher(service: AnalyzeApartmentService) -> None:
+            launched["service"] = service
 
-        def fake_input(_: str) -> str:
-            return next(prompts)
+        with patch("apartment_agents.tui.app._load_textual_launcher", return_value=fake_launcher):
+            run()
 
-        def fake_output(message: str) -> None:
-            outputs.append(message)
+        self.assertIsInstance(launched["service"], AnalyzeApartmentService)
 
-        with TemporaryDirectory() as tmpdir:
-            service = AnalyzeApartmentService(
-                config=AppConfig(output_dir=Path(tmpdir), adk_backend="mock")
-            )
-            from apartment_agents.tui import app
+    @unittest.skipUnless(BoligmesterApp is not None, "Textual is an optional TUI extra")
+    def test_textual_analyzer_runs_mock_analysis(self) -> None:
+        async def scenario() -> None:
+            with TemporaryDirectory() as tmpdir:
+                service = AnalyzeApartmentService(
+                    config=AppConfig(output_dir=Path(tmpdir), adk_backend="mock")
+                )
+                app = BoligmesterApp(service)
 
-            app.run(input_func=fake_input, output_func=fake_output, service=service)
+                async with app.run_test(size=(80, 24)) as pilot:
+                    await pilot.pause(0.1)
+                    await pilot.press("enter")
+                    await pilot.pause(0.1)
+                    await pilot.press("enter")
+                    await pilot.pause(1.0)
 
-        joined = "\n".join(outputs)
-        self.assertIn("Reports", joined)
-        self.assertIn("Status: Planned", joined)
+                    recommendation = app.screen.query_one("#recommendation-tile", Static)
+                    status = app.screen.query_one("#analysis-status", Static)
 
-    def test_run_analyze_flow_rejects_missing_buyer_profile_id(self) -> None:
-        prompts = iter(
-            [
-                "1",
-                "https://www.boligsiden.dk/adresse/frederiks-alle-12-3-th-8000-aarhus-c",
-                "",
-            ]
-        )
-        outputs: list[str] = []
+                self.assertEqual(recommendation.content, "[b]BUY[/b]\nRECOMMENDATION")
+                self.assertEqual(str(status.content), "analysis complete")
 
-        def fake_input(_: str) -> str:
-            return next(prompts)
+        asyncio.run(scenario())
 
-        def fake_output(message: str) -> None:
-            outputs.append(message)
+    @unittest.skipUnless(BoligmesterApp is not None, "Textual is an optional TUI extra")
+    def test_textual_arrow_keys_move_focus(self) -> None:
+        async def scenario() -> None:
+            with TemporaryDirectory() as tmpdir:
+                service = AnalyzeApartmentService(
+                    config=AppConfig(output_dir=Path(tmpdir), adk_backend="mock")
+                )
+                app = BoligmesterApp(service)
 
-        with TemporaryDirectory() as tmpdir:
-            service = AnalyzeApartmentService(
-                config=AppConfig(output_dir=Path(tmpdir), adk_backend="mock")
-            )
-            from apartment_agents.tui import app
+                async with app.run_test(size=(80, 24)) as pilot:
+                    await pilot.pause(0.1)
 
-            app.run(input_func=fake_input, output_func=fake_output, service=service)
+                    table = app.screen.query_one("#resource-table", DataTable)
+                    self.assertEqual(app.focused.id, "resource-table")
+                    self.assertEqual(table.cursor_row, 0)
 
-        joined = "\n".join(outputs)
-        self.assertIn("Analysis error: Buyer profile id is required.", joined)
+                    await pilot.press("down")
+                    await pilot.pause(0.1)
+                    self.assertEqual(table.cursor_row, 1)
+
+                    await pilot.press("up")
+                    await pilot.pause(0.1)
+                    self.assertEqual(table.cursor_row, 0)
+
+                    await pilot.press("enter")
+                    await pilot.pause(0.1)
+                    command_table = app.screen.query_one("#command-table", DataTable)
+                    self.assertEqual(app.focused.id, "command-table")
+                    self.assertEqual(command_table.cursor_row, 0)
+
+                    await pilot.press("down")
+                    await pilot.pause(0.1)
+                    self.assertEqual(command_table.cursor_row, 1)
+
+        asyncio.run(scenario())
 
 
 if __name__ == "__main__":
