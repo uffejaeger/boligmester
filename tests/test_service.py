@@ -11,6 +11,7 @@ from apartment_agents.app.errors import (
 from apartment_agents.app.services import (
     AnalyzeApartmentRequest,
     AnalyzeApartmentService,
+    CompareApartmentsRequest,
     SearchApartmentsRequest,
 )
 from apartment_agents.adk.runner import AdkAnalysisRunner
@@ -130,6 +131,38 @@ class AnalyzeApartmentServiceTest(unittest.TestCase):
             self.assertEqual(
                 service.available_saved_apartments()[0].url,
                 search.search_run.results[0].url,
+            )
+
+    def test_saved_apartments_can_be_compared(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            service = AnalyzeApartmentService(
+                config=AppConfig(output_dir=Path(tmpdir), adk_backend="mock"),
+            )
+            search = service.search_apartments(SearchApartmentsRequest(city="Aarhus C"))
+            saved = [
+                service.save_search_result_apartment(result).saved_apartment
+                for result in search.search_run.results[:2]
+            ]
+
+            result = service.compare_apartments(
+                CompareApartmentsRequest(
+                    buyer_profile_id="solo_engineer",
+                    saved_apartment_ids=[apartment.saved_id for apartment in saved],
+                )
+            )
+
+            self.assertTrue(result.comparison_path.exists())
+            self.assertTrue(result.workspace_path.exists())
+            self.assertEqual(len(result.comparison.items), 2)
+            self.assertIsNotNone(result.comparison.recommended_saved_id)
+            self.assertIn("# Apartment Comparison", result.comparison_markdown)
+            self.assertIn("Tradeoffs:", result.comparison_markdown)
+            self.assertEqual(
+                service.available_apartment_comparisons()[0].comparison_id,
+                result.comparison.comparison_id,
+            )
+            self.assertTrue(
+                any(item.approval_likelihood is not None for item in result.comparison.items)
             )
 
     def test_analyze_reports_imported_capture_assumption(self) -> None:

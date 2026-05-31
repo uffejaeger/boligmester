@@ -19,10 +19,11 @@ Current implementation includes:
 * manifest-backed listing regression fixtures
 * apartment search workflow with fixture/live-fetch parsing and local persistence
 * saved-apartment workflow for revisiting candidate listings from the TUI
+* apartment comparison workflow with deterministic finance outputs and missing evidence
 * a validation harness for real-world URL sets
 * an explicit top-level analysis workflow graph with deterministic nodes and an ADK agent boundary
-* a terminal UI for URL analysis, apartment search, and buyer profiles
-* local workspace persistence for buyer profiles, search runs, saved apartments, and analysis run metadata
+* a terminal UI for URL analysis, apartment search, saved apartments, comparisons, and buyer profiles
+* local workspace persistence for buyer profiles, search runs, saved apartments, comparisons, and analysis run metadata
 
 Still in progress:
 
@@ -42,6 +43,7 @@ Still in progress:
 * [Local workspace](docs/local-workspace.md)
 * [Apartment search workflow](docs/search-workflow.md)
 * [Saved apartments](docs/saved-apartments.md)
+* [Apartment comparison workflow](docs/comparison-workflow.md)
 
 ## Repository Layout
 

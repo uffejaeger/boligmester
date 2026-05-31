@@ -10,6 +10,8 @@ from typing import Any
 from apartment_agents.app.errors import WorkspacePersistenceError
 from apartment_agents.models import (
     Address,
+    ApartmentComparison,
+    ApartmentComparisonItem,
     AnalysisReport,
     BuyerProfile,
     HouseholdProfile,
@@ -41,6 +43,7 @@ class LocalWorkspaceStore:
         self.analysis_runs_dir = self.root / "analysis_runs"
         self.search_runs_dir = self.root / "search_runs"
         self.saved_apartments_dir = self.root / "saved_apartments"
+        self.comparisons_dir = self.root / "comparisons"
         self.ensure_directories()
 
     def ensure_directories(self) -> None:
@@ -48,6 +51,7 @@ class LocalWorkspaceStore:
         self.analysis_runs_dir.mkdir(parents=True, exist_ok=True)
         self.search_runs_dir.mkdir(parents=True, exist_ok=True)
         self.saved_apartments_dir.mkdir(parents=True, exist_ok=True)
+        self.comparisons_dir.mkdir(parents=True, exist_ok=True)
 
     def save_buyer_profile(self, profile: BuyerProfile) -> Path:
         self._validate_safe_id(profile.buyer_id, "Buyer profile id")
@@ -130,6 +134,29 @@ class LocalWorkspaceStore:
         for path in sorted(self.saved_apartments_dir.glob("*.json")):
             apartments.append(self._saved_apartment_from_payload(self._read_json(path)))
         return sorted(apartments, key=lambda apartment: apartment.saved_at, reverse=True)
+
+    def save_apartment_comparison(self, comparison: ApartmentComparison) -> Path:
+        self._validate_safe_id(comparison.comparison_id, "Comparison id")
+        path = self.comparisons_dir / f"{comparison.comparison_id}.json"
+        self._write_json(path, self._apartment_comparison_to_payload(comparison))
+        return path
+
+    def load_apartment_comparison(self, comparison_id: str) -> ApartmentComparison:
+        self._validate_safe_id(comparison_id, "Comparison id")
+        path = self.comparisons_dir / f"{comparison_id}.json"
+        try:
+            payload = self._read_json(path)
+        except FileNotFoundError as exc:
+            raise WorkspacePersistenceError(
+                f"Workspace apartment comparison does not exist: {comparison_id}"
+            ) from exc
+        return self._apartment_comparison_from_payload(payload)
+
+    def list_apartment_comparisons(self) -> list[ApartmentComparison]:
+        comparisons = []
+        for path in sorted(self.comparisons_dir.glob("*.json")):
+            comparisons.append(self._apartment_comparison_from_payload(self._read_json(path)))
+        return sorted(comparisons, key=lambda comparison: comparison.generated_at, reverse=True)
 
     def _validate_safe_id(self, value: str, label: str) -> None:
         if not SAFE_ID_PATTERN.fullmatch(value):
@@ -295,6 +322,72 @@ class LocalWorkspaceStore:
             tags=payload.get("tags", []),
             saved_at=_datetime_from_iso(payload["saved_at"]),
             raw_payload=payload.get("raw_payload", {}),
+        )
+
+    def _apartment_comparison_to_payload(self, comparison: ApartmentComparison) -> dict[str, Any]:
+        return {
+            "comparison_id": comparison.comparison_id,
+            "buyer_profile_id": comparison.buyer_profile_id,
+            "summary": comparison.summary,
+            "recommended_saved_id": comparison.recommended_saved_id,
+            "generated_at": comparison.generated_at.isoformat(),
+            "items": [self._comparison_item_to_payload(item) for item in comparison.items],
+        }
+
+    def _comparison_item_to_payload(self, item: ApartmentComparisonItem) -> dict[str, Any]:
+        return {
+            "saved_id": item.saved_id,
+            "listing_id": item.listing_id,
+            "title": item.title,
+            "address": {
+                "street": item.address.street,
+                "postal_code": item.address.postal_code,
+                "city": item.address.city,
+                "municipality": item.address.municipality,
+                "country_code": item.address.country_code,
+            },
+            "url": item.url,
+            "asking_price_dkk": item.asking_price_dkk,
+            "area_sqm": item.area_sqm,
+            "rooms": item.rooms,
+            "owner_cost_monthly_dkk": item.owner_cost_monthly_dkk,
+            "price_per_sqm_dkk": item.price_per_sqm_dkk,
+            "approval_likelihood": item.approval_likelihood,
+            "debt_factor": item.debt_factor,
+            "monthly_housing_cost_dkk": item.monthly_housing_cost_dkk,
+            "safe_purchase_price_gap_dkk": item.safe_purchase_price_gap_dkk,
+            "tradeoffs": item.tradeoffs,
+            "missing_evidence": item.missing_evidence,
+        }
+
+    def _apartment_comparison_from_payload(self, payload: dict[str, Any]) -> ApartmentComparison:
+        return ApartmentComparison(
+            comparison_id=payload["comparison_id"],
+            buyer_profile_id=payload["buyer_profile_id"],
+            items=[self._comparison_item_from_payload(item) for item in payload.get("items", [])],
+            summary=payload["summary"],
+            recommended_saved_id=payload.get("recommended_saved_id"),
+            generated_at=_datetime_from_iso(payload["generated_at"]),
+        )
+
+    def _comparison_item_from_payload(self, payload: dict[str, Any]) -> ApartmentComparisonItem:
+        return ApartmentComparisonItem(
+            saved_id=payload["saved_id"],
+            listing_id=payload["listing_id"],
+            title=payload["title"],
+            address=Address(**payload["address"]),
+            url=payload["url"],
+            asking_price_dkk=payload.get("asking_price_dkk"),
+            area_sqm=payload.get("area_sqm"),
+            rooms=payload.get("rooms"),
+            owner_cost_monthly_dkk=payload.get("owner_cost_monthly_dkk"),
+            price_per_sqm_dkk=payload.get("price_per_sqm_dkk"),
+            approval_likelihood=payload.get("approval_likelihood"),
+            debt_factor=payload.get("debt_factor"),
+            monthly_housing_cost_dkk=payload.get("monthly_housing_cost_dkk"),
+            safe_purchase_price_gap_dkk=payload.get("safe_purchase_price_gap_dkk"),
+            tradeoffs=payload.get("tradeoffs", []),
+            missing_evidence=payload.get("missing_evidence", []),
         )
 
 

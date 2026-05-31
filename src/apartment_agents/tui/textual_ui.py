@@ -8,6 +8,7 @@ from rich.text import Text
 from apartment_agents.app.services import (
     AnalyzeApartmentRequest,
     AnalyzeApartmentService,
+    CompareApartmentsRequest,
     SearchApartmentsRequest,
 )
 from apartment_agents.models import (
@@ -106,11 +107,14 @@ MENU_ENTRIES = [
         key="compare",
         namespace="default",
         name="comparisons",
-        ready="0/1",
-        status="Planned",
+        ready="1/1",
+        status="Running",
         kind="Workflow",
         summary="Structured multi-listing comparison.",
-        detail="Apartment comparison is not implemented yet. Next build step is comparison reports.",
+        detail=(
+            "Compares saved apartments against a buyer profile, writes a markdown "
+            "comparison, and persists structured tradeoffs in the local workspace."
+        ),
     ),
     MenuEntry(
         key="watchlist",
@@ -290,6 +294,8 @@ class CommandTable(DataTable):
             self.app.screen.action_save_selected_apartment()
         elif row_key.value == "analyze-selected":
             self.app.screen.action_analyze_selected()
+        elif row_key.value == "compare-apartments":
+            asyncio.create_task(self.app.screen.action_run_comparison())
         elif row_key.value == "save":
             asyncio.create_task(self.app.screen.action_save_profile())
 
@@ -298,6 +304,7 @@ class MenuScreen(Screen[None]):
     BINDINGS = [
         Binding("1", "open_analyzer", "Analyze"),
         Binding("2", "open_search", "Search"),
+        Binding("5", "open_compare", "Compare"),
         Binding("6", "open_watchlist", "Saved"),
         Binding("p", "open_profiles", "Profiles"),
         Binding("9", "open_profiles", "Profiles"),
@@ -331,6 +338,7 @@ class MenuScreen(Screen[None]):
                 ("enter", "Open"),
                 ("1", "Analyze"),
                 ("2", "Search"),
+                ("5", "Compare"),
                 ("6", "Saved"),
                 ("p", "Profiles"),
                 ("7", "Reports"),
@@ -374,6 +382,9 @@ class MenuScreen(Screen[None]):
     def action_open_search(self) -> None:
         self._open_entry("search")
 
+    def action_open_compare(self) -> None:
+        self._open_entry("compare")
+
     def action_open_watchlist(self) -> None:
         self._open_entry("watchlist")
 
@@ -396,6 +407,9 @@ class MenuScreen(Screen[None]):
             return
         if key == "search":
             self.app.push_screen(SearchScreen(self.app.service))
+            return
+        if key == "compare":
+            self.app.push_screen(ComparisonScreen(self.app.service))
             return
         if key == "watchlist":
             self.app.push_screen(SavedApartmentsScreen(self.app.service))
@@ -772,6 +786,136 @@ class SavedApartmentsScreen(Screen[None]):
             ),
             None,
         )
+
+
+class ComparisonScreen(Screen[None]):
+    BINDINGS = [
+        Binding("c", "run_comparison", "Compare"),
+    ]
+
+    def __init__(self, service: AnalyzeApartmentService) -> None:
+        super().__init__()
+        self.service = service
+        self._comparison_running = False
+
+    def compose(self) -> ComposeResult:
+        profiles = self.service.available_buyer_profiles()
+        default_profile = next(
+            (profile.buyer_id for profile in profiles if profile.buyer_id == "solo_engineer"),
+            profiles[0].buyer_id if profiles else "",
+        )
+        yield Vertical(
+            _top_bar("workflow/comparisons", self.service),
+            Horizontal(
+                Vertical(
+                    Static("BUYER PROFILE", classes="field-label"),
+                    Select(
+                        _profile_options(profiles),
+                        id="comparison-buyer-profile-id",
+                        value=default_profile,
+                        allow_blank=False,
+                        compact=True,
+                    ),
+                    Static("SAVED CANDIDATES", classes="pane-title"),
+                    DataTable(
+                        id="comparison-candidates",
+                        cursor_type="row",
+                        show_row_labels=False,
+                        zebra_stripes=True,
+                    ),
+                    Static("COMMANDS", classes="field-label"),
+                    CommandTable(
+                        id="comparison-command-table",
+                        cursor_type="row",
+                        show_header=False,
+                        show_row_labels=False,
+                    ),
+                    Static("", id="comparison-status", classes="status-line"),
+                    classes="form-pane",
+                ),
+                Vertical(
+                    Static("COMPARISON", classes="pane-title"),
+                    VerticalScroll(
+                        Markdown(
+                            "# Apartment Comparison\n\nPress `c` to compare saved apartments.",
+                            id="comparison-report",
+                        ),
+                        classes="report-pane",
+                    ),
+                    classes="output-pane",
+                ),
+                classes="main-split",
+            ),
+            _key_bar(
+                ("up/down", "Move"),
+                ("enter", "Run command"),
+                ("c", "Compare saved"),
+                ("esc", "Back"),
+                ("q", "Quit"),
+            ),
+            classes="screen-frame",
+        )
+
+    def on_mount(self) -> None:
+        candidates = self.query_one("#comparison-candidates", DataTable)
+        candidates.add_column("ADDRESS", width=30)
+        candidates.add_column("PRICE", width=14)
+        candidates.add_column("AREA", width=9)
+        candidates.add_column("PRICE/M2", width=12)
+        for apartment in self.service.available_saved_apartments():
+            candidates.add_row(
+                apartment.address.street,
+                _format_optional_dkk(apartment.asking_price_dkk),
+                _format_optional_sqm(apartment.area_sqm),
+                _format_optional_dkk(apartment.price_per_sqm_dkk),
+                key=apartment.saved_id,
+            )
+
+        commands = self.query_one("#comparison-command-table", DataTable)
+        commands.add_column("KEY", width=5)
+        commands.add_column("ACTION", width=24)
+        commands.add_row("c", "compare-saved", key="compare-apartments")
+        self.set_timer(0.05, commands.focus)
+
+    @on(DataTable.RowSelected, "#comparison-command-table")
+    async def comparison_command_selected(self, event: DataTable.RowSelected) -> None:
+        if event.row_key.value == "compare-apartments":
+            await self.action_run_comparison()
+
+    async def action_run_comparison(self) -> None:
+        if self._comparison_running:
+            return
+
+        status = self.query_one("#comparison-status", Static)
+        report = self.query_one("#comparison-report", Markdown)
+        buyer_input = self.query_one("#comparison-buyer-profile-id", Select)
+        buyer_value = buyer_input.value
+        buyer_profile_id = "" if buyer_value == Select.NULL else str(buyer_value).strip()
+        if not buyer_profile_id:
+            status.update(Text("buyer profile id is required", style="bold #ff6b6b"))
+            return
+
+        self._comparison_running = True
+        status.update(Text("running workflow/comparisons", style="bold #ffd166"))
+        await report.update("# Apartment Comparison\n\nComparison is running.")
+        try:
+            result = await asyncio.to_thread(
+                self.service.compare_apartments,
+                CompareApartmentsRequest(buyer_profile_id=buyer_profile_id),
+            )
+        except Exception as exc:
+            status.update(Text(f"comparison error: {exc}", style="bold #ff6b6b"))
+            return
+        finally:
+            self._comparison_running = False
+
+        status.update(
+            Text(
+                f"comparison complete: {result.comparison.comparison_id}",
+                style="bold #7ddf64",
+            )
+        )
+        await report.update(result.comparison_markdown)
 
 
 class AnalyzeScreen(Screen[None]):

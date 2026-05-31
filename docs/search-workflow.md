@@ -24,11 +24,11 @@ search fetches.
 
 Every search run is saved in the local workspace under
 `search_runs/*.json`. Saved search results contain source URL, address, price,
-area, room count, and parser metadata so later comparison and watchlist features
-can reuse the same rows.
+area, room count, and parser metadata so saved-apartment, comparison, and
+watchlist features can reuse the same rows.
 
 ## TUI
 
 Open the Textual TUI and press `2` to search. The default city is `Aarhus C`.
 After results load, select a row and press `a` to open the URL analyzer with that
-listing URL prefilled.
+listing URL prefilled, or press `s` to save it for comparison.

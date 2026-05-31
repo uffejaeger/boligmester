@@ -44,6 +44,12 @@ class TuiTest(unittest.TestCase):
         self.assertIn("Saved Apartments", screen)
         self.assertIn("Status: Available", screen)
 
+    def test_render_placeholder_screen_for_compare(self) -> None:
+        screen = render_placeholder_screen("5")
+
+        self.assertIn("Compare Apartments", screen)
+        self.assertIn("Status: Available", screen)
+
     def test_render_placeholder_screen_for_unknown_option(self) -> None:
         screen = render_placeholder_screen("99")
 
@@ -253,6 +259,36 @@ class TuiTest(unittest.TestCase):
                     listing_url,
                     "https://www.boligsiden.dk/adresse/frederiks-alle-12-3-th-8000-aarhus-c",
                 )
+
+        asyncio.run(scenario())
+
+    @unittest.skipUnless(BoligmesterApp is not None, "Textual is an optional TUI extra")
+    def test_textual_comparison_screen_compares_saved_apartments(self) -> None:
+        async def scenario() -> None:
+            with TemporaryDirectory() as tmpdir:
+                service = AnalyzeApartmentService(
+                    config=AppConfig(output_dir=Path(tmpdir), adk_backend="mock")
+                )
+                search = service.search_apartments(SearchApartmentsRequest(city="Aarhus C"))
+                for result in search.search_run.results[:2]:
+                    service.save_search_result_apartment(result)
+                app = BoligmesterApp(service)
+
+                async with app.run_test(size=(120, 36)) as pilot:
+                    await pilot.pause(0.1)
+                    await pilot.press("5")
+                    await pilot.pause(0.1)
+
+                    table = app.screen.query_one("#comparison-candidates", DataTable)
+                    self.assertEqual(table.row_count, 2)
+
+                    await app.screen.action_run_comparison()
+                    await pilot.pause(0.1)
+
+                    status = app.screen.query_one("#comparison-status", Static)
+
+                self.assertIn("comparison complete:", str(status.content))
+                self.assertEqual(len(service.available_apartment_comparisons()), 1)
 
         asyncio.run(scenario())
 

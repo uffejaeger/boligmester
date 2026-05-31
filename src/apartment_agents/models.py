@@ -128,6 +128,36 @@ class SavedApartment:
 
 
 @dataclass(slots=True)
+class ApartmentComparisonItem:
+    saved_id: str
+    listing_id: str
+    title: str
+    address: Address
+    url: str
+    asking_price_dkk: int | None = None
+    area_sqm: float | None = None
+    rooms: float | None = None
+    owner_cost_monthly_dkk: int | None = None
+    price_per_sqm_dkk: int | None = None
+    approval_likelihood: str | None = None
+    debt_factor: float | None = None
+    monthly_housing_cost_dkk: int | None = None
+    safe_purchase_price_gap_dkk: int | None = None
+    tradeoffs: list[str] = field(default_factory=list)
+    missing_evidence: list[str] = field(default_factory=list)
+
+
+@dataclass(slots=True)
+class ApartmentComparison:
+    comparison_id: str
+    buyer_profile_id: str
+    items: list[ApartmentComparisonItem]
+    summary: str
+    recommended_saved_id: str | None = None
+    generated_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+
+
+@dataclass(slots=True)
 class HouseholdProfile:
     adults: int
     children: int = 0

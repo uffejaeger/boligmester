@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+import hashlib
 import re
 from dataclasses import dataclass
+from datetime import datetime, timezone
 from pathlib import Path
 
 from apartment_agents.adk.analysis_graph import (
@@ -19,12 +21,19 @@ from apartment_agents.finance.service import FinanceBoundary
 from apartment_agents.logging import get_logger, log_kv
 from apartment_agents.models import (
     Address,
+    ApartmentComparison,
+    ApartmentComparisonItem,
     AnalysisReport,
     BuyerProfile,
+    Listing,
     ListingSearchCriteria,
     ListingSearchResult,
     ListingSearchRun,
     SavedApartment,
+)
+from apartment_agents.reports.comparison import (
+    comparison_file_path,
+    render_comparison_markdown,
 )
 from apartment_agents.storage.fixtures import FixtureStore
 from apartment_agents.storage.workspace import LocalWorkspaceStore
@@ -88,6 +97,20 @@ class SaveApartmentRequest:
 @dataclass(slots=True)
 class SaveApartmentResult:
     saved_apartment: SavedApartment
+    workspace_path: Path
+
+
+@dataclass(slots=True)
+class CompareApartmentsRequest:
+    buyer_profile_id: str
+    saved_apartment_ids: list[str] | None = None
+
+
+@dataclass(slots=True)
+class CompareApartmentsResult:
+    comparison: ApartmentComparison
+    comparison_markdown: str
+    comparison_path: Path
     workspace_path: Path
 
 
@@ -256,6 +279,60 @@ class AnalyzeApartmentService:
     def available_saved_apartments(self) -> list[SavedApartment]:
         return self.workspace_store.list_saved_apartments()
 
+    def compare_apartments(self, request: CompareApartmentsRequest) -> CompareApartmentsResult:
+        buyer_profile_id = request.buyer_profile_id.strip()
+        if not buyer_profile_id:
+            raise ValueError("buyer profile id is required")
+        buyer_profile = self.fixture_store.load_buyer_profile(buyer_profile_id)
+        apartments = self._comparison_apartments(request.saved_apartment_ids)
+        if len(apartments) < 2:
+            raise ValueError("at least two saved apartments are required for comparison")
+
+        log_kv(
+            logger,
+            20,
+            "apartment_comparison_started",
+            buyer_profile_id=buyer_profile.buyer_id,
+            apartment_count=len(apartments),
+        )
+        items = [
+            self._comparison_item_for_apartment(apartment, buyer_profile)
+            for apartment in apartments
+        ]
+        _apply_comparison_tradeoffs(items)
+        recommended = _recommended_comparison_item(items)
+        generated_at = datetime.now(timezone.utc)
+        comparison = ApartmentComparison(
+            comparison_id=_comparison_id(buyer_profile.buyer_id, apartments, generated_at),
+            buyer_profile_id=buyer_profile.buyer_id,
+            items=items,
+            summary=_comparison_summary(items, recommended, buyer_profile),
+            recommended_saved_id=recommended.saved_id if recommended is not None else None,
+            generated_at=generated_at,
+        )
+        comparison_markdown = render_comparison_markdown(comparison)
+        comparison_path = comparison_file_path(self.config.output_dir, comparison.comparison_id)
+        comparison_path.write_text(comparison_markdown, encoding="utf-8")
+        workspace_path = self.workspace_store.save_apartment_comparison(comparison)
+        log_kv(
+            logger,
+            20,
+            "apartment_comparison_completed",
+            buyer_profile_id=buyer_profile.buyer_id,
+            comparison_id=comparison.comparison_id,
+            recommended_saved_id=comparison.recommended_saved_id or "",
+            path=str(comparison_path),
+        )
+        return CompareApartmentsResult(
+            comparison=comparison,
+            comparison_markdown=comparison_markdown,
+            comparison_path=comparison_path,
+            workspace_path=workspace_path,
+        )
+
+    def available_apartment_comparisons(self) -> list[ApartmentComparison]:
+        return self.workspace_store.list_apartment_comparisons()
+
     def save_buyer_profile(self, profile: BuyerProfile) -> Path:
         path = self.workspace_store.save_buyer_profile(profile)
         log_kv(
@@ -272,7 +349,181 @@ class AnalyzeApartmentService:
         validate_runner_startup(self.config)
         log_kv(logger, 20, "service_startup_validated")
 
+    def _comparison_apartments(self, saved_ids: list[str] | None) -> list[SavedApartment]:
+        if saved_ids is None:
+            return self.available_saved_apartments()
+        apartments = []
+        seen_ids = set()
+        for saved_id in saved_ids:
+            if saved_id in seen_ids:
+                continue
+            apartments.append(self.workspace_store.load_saved_apartment(saved_id))
+            seen_ids.add(saved_id)
+        return apartments
+
+    def _comparison_item_for_apartment(
+        self, apartment: SavedApartment, buyer_profile: BuyerProfile
+    ) -> ApartmentComparisonItem:
+        missing_evidence = _missing_evidence_for_apartment(apartment)
+        finance_result = None
+        if apartment.asking_price_dkk is None or apartment.asking_price_dkk <= 0:
+            missing_evidence.append("asking_price_dkk is required for finance screening")
+        else:
+            listing = _listing_from_saved_apartment(apartment)
+            finance_result = self.finance_boundary.evaluate_listing_for_buyer(
+                listing=listing,
+                buyer=buyer_profile,
+            )
+
+        return ApartmentComparisonItem(
+            saved_id=apartment.saved_id,
+            listing_id=apartment.listing_id,
+            title=apartment.title,
+            address=apartment.address,
+            url=apartment.url,
+            asking_price_dkk=apartment.asking_price_dkk,
+            area_sqm=apartment.area_sqm,
+            rooms=apartment.rooms,
+            owner_cost_monthly_dkk=apartment.owner_cost_monthly_dkk,
+            price_per_sqm_dkk=apartment.price_per_sqm_dkk,
+            approval_likelihood=(
+                finance_result.approval_likelihood if finance_result is not None else None
+            ),
+            debt_factor=finance_result.debt_factor if finance_result is not None else None,
+            monthly_housing_cost_dkk=(
+                finance_result.housing_cost_monthly_dkk if finance_result is not None else None
+            ),
+            safe_purchase_price_gap_dkk=(
+                finance_result.maximum_safe_purchase_price_dkk - apartment.asking_price_dkk
+                if finance_result is not None and apartment.asking_price_dkk is not None
+                else None
+            ),
+            missing_evidence=missing_evidence,
+        )
+
 
 def _saved_apartment_id(source: str, listing_id: str) -> str:
     value = f"{source}-{listing_id}"
     return re.sub(r"[^A-Za-z0-9_-]+", "-", value).strip("-")
+
+
+def _comparison_id(
+    buyer_profile_id: str, apartments: list[SavedApartment], generated_at: datetime
+) -> str:
+    timestamp = generated_at.strftime("%Y%m%d%H%M%S")
+    digest = hashlib.sha1(
+        "|".join(
+            [
+                buyer_profile_id,
+                generated_at.isoformat(),
+                *[item.saved_id for item in apartments],
+            ]
+        ).encode("utf-8")
+    ).hexdigest()[:8]
+    return f"comparison-{timestamp}-{digest}"
+
+
+def _listing_from_saved_apartment(apartment: SavedApartment) -> Listing:
+    return Listing(
+        listing_id=apartment.listing_id,
+        source=apartment.source,
+        url=apartment.url,
+        address=apartment.address,
+        asking_price_dkk=apartment.asking_price_dkk or 0,
+        area_sqm=apartment.area_sqm or 0,
+        rooms=apartment.rooms,
+        owner_cost_monthly_dkk=apartment.owner_cost_monthly_dkk,
+        raw_payload=apartment.raw_payload,
+    )
+
+
+def _missing_evidence_for_apartment(apartment: SavedApartment) -> list[str]:
+    missing = []
+    if apartment.asking_price_dkk is None:
+        missing.append("asking_price_dkk is missing")
+    if apartment.area_sqm is None:
+        missing.append("area_sqm is missing")
+    if apartment.rooms is None:
+        missing.append("rooms is missing")
+    if apartment.owner_cost_monthly_dkk is None:
+        missing.append("owner_cost_monthly_dkk is missing")
+    return missing
+
+
+def _apply_comparison_tradeoffs(items: list[ApartmentComparisonItem]) -> None:
+    prices = [item.asking_price_dkk for item in items if item.asking_price_dkk is not None]
+    areas = [item.area_sqm for item in items if item.area_sqm is not None]
+    price_per_sqm = [item.price_per_sqm_dkk for item in items if item.price_per_sqm_dkk is not None]
+    owner_costs = [
+        item.owner_cost_monthly_dkk for item in items if item.owner_cost_monthly_dkk is not None
+    ]
+
+    min_price = min(prices) if prices else None
+    max_price = max(prices) if prices else None
+    max_area = max(areas) if areas else None
+    min_price_per_sqm = min(price_per_sqm) if price_per_sqm else None
+    min_owner_cost = min(owner_costs) if owner_costs else None
+
+    for item in items:
+        tradeoffs = []
+        if item.asking_price_dkk is not None and item.asking_price_dkk == min_price:
+            tradeoffs.append("Lowest asking price among compared apartments.")
+        if item.asking_price_dkk is not None and item.asking_price_dkk == max_price:
+            tradeoffs.append("Highest asking price among compared apartments.")
+        if item.area_sqm is not None and item.area_sqm == max_area:
+            tradeoffs.append("Largest area among compared apartments.")
+        if item.price_per_sqm_dkk is not None and item.price_per_sqm_dkk == min_price_per_sqm:
+            tradeoffs.append("Lowest price per m2 among compared apartments.")
+        if (
+            item.owner_cost_monthly_dkk is not None
+            and item.owner_cost_monthly_dkk == min_owner_cost
+        ):
+            tradeoffs.append("Lowest owner cost among compared apartments.")
+        if item.approval_likelihood is not None:
+            tradeoffs.append(
+                f"Deterministic finance screening gives {item.approval_likelihood} approval likelihood."
+            )
+        if item.safe_purchase_price_gap_dkk is not None:
+            if item.safe_purchase_price_gap_dkk >= 0:
+                tradeoffs.append("Asking price is within deterministic safe purchase price.")
+            else:
+                tradeoffs.append("Asking price is above deterministic safe purchase price.")
+        if item.missing_evidence:
+            tradeoffs.append("Requires follow-up on missing structured evidence.")
+        item.tradeoffs = tradeoffs
+
+
+def _recommended_comparison_item(
+    items: list[ApartmentComparisonItem],
+) -> ApartmentComparisonItem | None:
+    if not items:
+        return None
+    return max(items, key=_comparison_rank)
+
+
+def _comparison_rank(item: ApartmentComparisonItem) -> tuple[int, int, int, int, int]:
+    approval_rank = {"high": 3, "medium": 2, "low": 1}.get(item.approval_likelihood or "", 0)
+    safe_gap = item.safe_purchase_price_gap_dkk
+    price_per_sqm = item.price_per_sqm_dkk
+    return (
+        approval_rank,
+        safe_gap if safe_gap is not None else -(10**12),
+        -(price_per_sqm if price_per_sqm is not None else 10**12),
+        int(item.area_sqm or 0),
+        -len(item.missing_evidence),
+    )
+
+
+def _comparison_summary(
+    items: list[ApartmentComparisonItem],
+    recommended: ApartmentComparisonItem | None,
+    buyer_profile: BuyerProfile,
+) -> str:
+    if recommended is None:
+        return f"Compared 0 saved apartments for {buyer_profile.buyer_id}."
+    return (
+        f"Compared {len(items)} saved apartments for {buyer_profile.buyer_id}. "
+        f"{recommended.title} currently ranks strongest from available structured fields "
+        "because the comparison favors finance approval, safe purchase price gap, "
+        "lower price per m2, usable area, and fewer missing evidence fields."
+    )
