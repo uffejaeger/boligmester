@@ -143,15 +143,18 @@ class ValidationHarnessTest(unittest.TestCase):
                 "https://www.boligsiden.dk/adresse/frederiks-alle-12-3-th-8000-aarhus-c\n",
                 encoding="utf-8",
             )
-            with patch.dict(
-                os.environ,
-                {
-                    "ADK_BACKEND": "mock",
-                    "REPORT_OUTPUT_DIR": str(output_dir),
-                    "LOG_LEVEL": "ERROR",
-                },
-                clear=False,
-            ), patch("sys.stdout", new_callable=StringIO) as stdout:
+            with (
+                patch.dict(
+                    os.environ,
+                    {
+                        "ADK_BACKEND": "mock",
+                        "REPORT_OUTPUT_DIR": str(output_dir),
+                        "LOG_LEVEL": "ERROR",
+                    },
+                    clear=False,
+                ),
+                patch("sys.stdout", new_callable=StringIO) as stdout,
+            ):
                 exit_code = main([str(url_file), "--buyer-profile-id", "solo_engineer"])
 
             validation_dir = output_dir / "validation"
@@ -170,15 +173,18 @@ class ValidationHarnessTest(unittest.TestCase):
                 encoding="utf-8",
             )
             explicit_output = Path(tmpdir) / "report.json"
-            with patch.dict(
-                os.environ,
-                {
-                    "ADK_BACKEND": "mock",
-                    "REPORT_OUTPUT_DIR": str(output_dir),
-                    "LOG_LEVEL": "ERROR",
-                },
-                clear=False,
-            ), patch("sys.stdout", new_callable=StringIO) as stdout:
+            with (
+                patch.dict(
+                    os.environ,
+                    {
+                        "ADK_BACKEND": "mock",
+                        "REPORT_OUTPUT_DIR": str(output_dir),
+                        "LOG_LEVEL": "ERROR",
+                    },
+                    clear=False,
+                ),
+                patch("sys.stdout", new_callable=StringIO) as stdout,
+            ):
                 exit_code = main(
                     [
                         str(url_file),

@@ -1,0 +1,112 @@
+name: Feature request
+description: Propose a new capability with explicit scope, success criteria, and validation.
+title: "[Feature] "
+labels:
+  - feature
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: Describe the user or system problem this feature should solve.
+      placeholder: The service can analyze one listing, but it cannot compare two candidate apartments side by side.
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposed_outcome
+    attributes:
+      label: Proposed outcome
+      description: Describe the capability or behavior that should exist when this feature is done.
+      placeholder: Users can run a comparison workflow that produces a structured side-by-side report for two listings.
+    validations:
+      required: true
+
+  - type: textarea
+    id: in_scope
+    attributes:
+      label: In scope
+      description: List what this issue should include.
+      placeholder: |
+        - service-layer comparison request and response types
+        - TUI entry flow for selecting two listings
+        - report output for structured comparison
+    validations:
+      required: true
+
+  - type: textarea
+    id: out_of_scope
+    attributes:
+      label: Out of scope
+      description: List what this issue should not include.
+      placeholder: |
+        - web UI
+        - watchlists
+        - multi-city market modeling changes
+    validations:
+      required: true
+
+  - type: textarea
+    id: acceptance_criteria
+    attributes:
+      label: Acceptance criteria
+      description: Write observable conditions that define success.
+      placeholder: |
+        - users can compare two listings through the service layer
+        - the comparison report shows explicit tradeoffs
+        - missing or weak evidence is surfaced instead of hidden
+    validations:
+      required: true
+
+  - type: textarea
+    id: validation
+    attributes:
+      label: Validation
+      description: State the evidence required to prove the feature works.
+      placeholder: |
+        - service or integration tests
+        - example input/output paths
+        - manual run notes if needed
+    validations:
+      required: true
+
+  - type: textarea
+    id: done_means
+    attributes:
+      label: Done means
+      description: Describe completion in direct, machine-checkable terms.
+      placeholder: |
+        - the feature exists behind the intended interface
+        - tests cover the new behavior
+        - CI passes
+        - docs and follow-up issues are updated where needed
+    validations:
+      required: true
+
+  - type: textarea
+    id: why_it_matters
+    attributes:
+      label: Why it matters
+      description: Explain why this capability matters for users or for the architecture.
+    validations:
+      required: false
+
+  - type: textarea
+    id: constraints_or_risks
+    attributes:
+      label: Constraints or risks
+      description: Call out technical constraints, risks, or dependencies.
+    validations:
+      required: false
+
+  - type: textarea
+    id: agent_context
+    attributes:
+      label: Context for agents
+      description: Link the files, fixtures, docs, issues, or examples an AI coding agent should read first.
+      placeholder: |
+        - src/apartment_agents/app/services.py
+        - docs/mvp-validation-aarhus.md
+        - issue #2
+    validations:
+      required: false

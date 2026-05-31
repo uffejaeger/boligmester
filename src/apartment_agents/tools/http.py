@@ -33,7 +33,9 @@ class HttpPageFetcher:
             with urlopen(request, timeout=self.timeout_seconds) as response:
                 document = response.read().decode("utf-8", errors="replace")
         except HTTPError as exc:
-            raise ListingFetchError(f"HTTP fetch failed with status {exc.code} for URL: {url}") from exc
+            raise ListingFetchError(
+                f"HTTP fetch failed with status {exc.code} for URL: {url}"
+            ) from exc
         except URLError as exc:
             raise ListingFetchError(f"Could not fetch listing URL: {url}") from exc
 

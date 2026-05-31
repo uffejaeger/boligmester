@@ -331,7 +331,9 @@ class MockAdkAnalysisRunner(AdkAnalysisRunner):
                         "fair_value_delta_per_sqm_dkk": fair_value_delta,
                     },
                     citations_count=len(market.citations) if market else 0,
-                    warnings=[] if market_ppsqm else ["Market pricing is based on incomplete inputs."],
+                    warnings=[]
+                    if market_ppsqm
+                    else ["Market pricing is based on incomplete inputs."],
                     citations=market.citations if market else [],
                 ),
             ),
@@ -353,7 +355,9 @@ class MockAdkAnalysisRunner(AdkAnalysisRunner):
                         "maximum_safe_purchase_price_dkk": finance.maximum_safe_purchase_price_dkk,
                     },
                     citations_count=0,
-                    warnings=[] if finance.approval_likelihood != "low" else ["Affordability is weak."],
+                    warnings=[]
+                    if finance.approval_likelihood != "low"
+                    else ["Affordability is weak."],
                     citations=[],
                 ),
             ),
@@ -372,7 +376,9 @@ class MockAdkAnalysisRunner(AdkAnalysisRunner):
                         "maximum_bid_dkk": int(negotiation_cap),
                     },
                     citations_count=0,
-                    warnings=["Negotiation logic is fixture-backed and should be replaced with live comps."],
+                    warnings=[
+                        "Negotiation logic is fixture-backed and should be replaced with live comps."
+                    ],
                     citations=[],
                 ),
             ),
@@ -383,7 +389,10 @@ class MockAdkAnalysisRunner(AdkAnalysisRunner):
                     agent_name="red_team_agent",
                     summary="Key downside risks have been enumerated for review.",
                     score=0.55,
-                    details={"risks": red_team_warnings or ["No obvious fixture-derived red flags found."]},
+                    details={
+                        "risks": red_team_warnings
+                        or ["No obvious fixture-derived red flags found."]
+                    },
                     citations_count=0,
                     warnings=red_team_warnings,
                     citations=[],
@@ -399,7 +408,9 @@ class MockAdkAnalysisRunner(AdkAnalysisRunner):
         )
         return responses
 
-    def synthesize_recommendation(self, report: AnalysisReport, finance_result: FinanceResult) -> Recommendation:
+    def synthesize_recommendation(
+        self, report: AnalysisReport, finance_result: FinanceResult
+    ) -> Recommendation:
         if finance_result.approval_likelihood == "low":
             return Recommendation.AVOID
         if finance_result.maximum_safe_purchase_price_dkk < report.listing.asking_price_dkk:

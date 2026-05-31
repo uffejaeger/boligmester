@@ -68,11 +68,7 @@ def render_placeholder_screen(choice: str) -> str:
     screen = PLACEHOLDER_SCREENS.get(choice)
     if screen is None:
         return "Unknown menu selection. Choose one of the listed options."
-    return (
-        f"{screen['title']}\n\n"
-        f"Status: {screen['status']}\n\n"
-        f"{screen['message']}"
-    )
+    return f"{screen['title']}\n\nStatus: {screen['status']}\n\n{screen['message']}"
 
 
 def run(

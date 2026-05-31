@@ -190,7 +190,9 @@ class DanishCreditEngine:
         mortgage_capacity = loan_capacity_monthly * annuity_factor
         total_purchase_capacity = mortgage_capacity / max(inputs.mortgage_share, 0.01)
 
-        if inputs.savings_dkk < int(total_purchase_capacity * self.policy.minimum_down_payment_ratio):
+        if inputs.savings_dkk < int(
+            total_purchase_capacity * self.policy.minimum_down_payment_ratio
+        ):
             total_purchase_capacity = inputs.savings_dkk / self.policy.minimum_down_payment_ratio
 
         if (

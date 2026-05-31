@@ -50,7 +50,9 @@ class ListingIngestionServiceTest(unittest.TestCase):
         </body></html>
         """
 
-        listing = parser.parse("https://www.boligsiden.dk/adresse/odensegade-21-3-th-8000-aarhus-c", html)
+        listing = parser.parse(
+            "https://www.boligsiden.dk/adresse/odensegade-21-3-th-8000-aarhus-c", html
+        )
 
         self.assertEqual(listing.asking_price_dkk, 3698000)
         self.assertEqual(listing.owner_cost_monthly_dkk, 2620)
@@ -69,7 +71,9 @@ class ListingIngestionServiceTest(unittest.TestCase):
         </body></html>
         """
 
-        listing = parser.parse("https://www.boligsiden.dk/adresse/odensegade-21-3-th-8000-aarhus-c", html)
+        listing = parser.parse(
+            "https://www.boligsiden.dk/adresse/odensegade-21-3-th-8000-aarhus-c", html
+        )
 
         self.assertIsNone(listing.rooms)
         self.assertIn("rooms", listing.raw_payload["missing_fields"])

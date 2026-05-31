@@ -3,7 +3,12 @@ from io import StringIO
 from unittest.mock import patch
 
 from apartment_agents.app.errors import ListingFetchError
-from apartment_agents.tools.browser_runtime import fetch_rendered_html, main, parse_args, validate_url
+from apartment_agents.tools.browser_runtime import (
+    fetch_rendered_html,
+    main,
+    parse_args,
+    validate_url,
+)
 
 
 class BrowserRuntimeTest(unittest.TestCase):
@@ -23,19 +28,25 @@ class BrowserRuntimeTest(unittest.TestCase):
                 fetch_rendered_html("https://www.boligsiden.dk/adresse/test")
 
     def test_main_prints_rendered_html(self) -> None:
-        with patch(
-            "apartment_agents.tools.browser_runtime.fetch_rendered_html",
-            return_value="<html><body>Rendered</body></html>",
-        ), patch("sys.stdout", new_callable=StringIO) as stdout:
+        with (
+            patch(
+                "apartment_agents.tools.browser_runtime.fetch_rendered_html",
+                return_value="<html><body>Rendered</body></html>",
+            ),
+            patch("sys.stdout", new_callable=StringIO) as stdout,
+        ):
             self.assertEqual(main(["https://www.boligsiden.dk/adresse/test"]), 0)
 
         self.assertIn("Rendered", stdout.getvalue())
 
     def test_main_returns_nonzero_for_runtime_error(self) -> None:
-        with patch(
-            "apartment_agents.tools.browser_runtime.fetch_rendered_html",
-            side_effect=ListingFetchError("failed"),
-        ), patch("sys.stderr", new_callable=StringIO) as stderr:
+        with (
+            patch(
+                "apartment_agents.tools.browser_runtime.fetch_rendered_html",
+                side_effect=ListingFetchError("failed"),
+            ),
+            patch("sys.stderr", new_callable=StringIO) as stderr,
+        ):
             self.assertEqual(main(["https://www.boligsiden.dk/adresse/test"]), 1)
 
         self.assertIn("failed", stderr.getvalue())

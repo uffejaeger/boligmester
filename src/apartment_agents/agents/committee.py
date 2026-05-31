@@ -141,16 +141,12 @@ def _find_disagreements(
         finance_result.approval_likelihood == "high"
         and normalized_scores.get("market_comps_agent", 0.5) < 0.45
     ):
-        disagreements.append(
-            "Credit looks acceptable, but market pricing still appears weak."
-        )
+        disagreements.append("Credit looks acceptable, but market pricing still appears weak.")
     if (
         finance_result.maximum_safe_purchase_price_dkk >= listing_price_dkk
         and normalized_scores.get("red_team_agent", 0.0) > 0.7
     ):
-        disagreements.append(
-            "Affordability clears the bar, but downside risk remains elevated."
-        )
+        disagreements.append("Affordability clears the bar, but downside risk remains elevated.")
     if (
         normalized_scores.get("negotiation_agent", 0.5) < 0.45
         and normalized_scores.get("market_comps_agent", 0.5) > 0.65

@@ -1,0 +1,107 @@
+name: Bug report
+description: Report a defect or regression with enough structure to reproduce and verify a fix.
+title: "[Bug] "
+labels:
+  - bug
+body:
+  - type: textarea
+    id: summary
+    attributes:
+      label: Summary
+      description: State the defect in one or two concrete sentences.
+      placeholder: A captured Boligsiden listing URL is ignored and the validation harness falls back to live fetch.
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected_behavior
+    attributes:
+      label: Expected behavior
+      description: Describe the observable behavior that should happen.
+      placeholder: Validation should prefer the imported capture and classify the listing as imported_capture.
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual_behavior
+    attributes:
+      label: Actual behavior
+      description: Describe the observable behavior that actually happens.
+      placeholder: The harness attempts live fetch, gets blocked, and records ingestion_error.
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Reproduction
+      description: Give exact steps, commands, inputs, or fixtures needed to reproduce.
+      placeholder: |
+        1. Configure ...
+        2. Run ...
+        3. Observe ...
+    validations:
+      required: true
+
+  - type: textarea
+    id: suspected_scope
+    attributes:
+      label: Suspected scope
+      description: List the files, services, workflows, or boundaries that likely need to change.
+      placeholder: listing ingestion, capture manifest lookup, validation harness classification
+    validations:
+      required: true
+
+  - type: textarea
+    id: acceptance_criteria
+    attributes:
+      label: Acceptance criteria
+      description: Write observable conditions that must be true after the fix.
+      placeholder: |
+        - Imported captures are preferred when present.
+        - Validation status is imported_capture for matching URLs.
+        - Existing live-fetch behavior is unchanged for URLs without captures.
+    validations:
+      required: true
+
+  - type: textarea
+    id: validation
+    attributes:
+      label: Validation
+      description: State the evidence required to prove the fix works.
+      placeholder: |
+        - automated tests added or updated
+        - exact command outputs to verify
+        - screenshots or logs if UI/runtime behavior matters
+    validations:
+      required: true
+
+  - type: textarea
+    id: done_means
+    attributes:
+      label: Done means
+      description: Describe completion in direct, machine-checkable terms.
+      placeholder: |
+        - the bug is reproducibly fixed
+        - tests cover the failure mode
+        - CI passes
+        - follow-up issues exist for anything intentionally left out
+    validations:
+      required: true
+
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: Include Python version, platform, relevant config, and dependency context.
+      placeholder: macOS, Python 3.13, ADK_BACKEND=mock, ENABLE_BROWSER_LISTING_FETCH=false
+    validations:
+      required: false
+
+  - type: textarea
+    id: additional_context
+    attributes:
+      label: Additional context
+      description: Add logs, links, screenshots, related issues, or source references.
+    validations:
+      required: false

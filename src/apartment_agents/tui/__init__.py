@@ -1,2 +1,1 @@
 """Terminal user interface entrypoints."""
-

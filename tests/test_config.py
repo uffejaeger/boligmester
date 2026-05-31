@@ -1,4 +1,5 @@
 import unittest
+from importlib import import_module
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
@@ -26,7 +27,7 @@ class AppConfigTest(unittest.TestCase):
                 google_api_key="test-key",
             )
             try:
-                import google.adk  # type: ignore  # pragma: no cover
+                import_module("google.adk")  # pragma: no cover
             except Exception:
                 with self.assertRaises(AdkRuntimeUnavailableError):
                     validate_runner_startup(config)

@@ -1,0 +1,96 @@
+name: Task
+description: Track an implementation slice with explicit scope, validation, and completion conditions.
+title: "[Task] "
+labels:
+  - task
+body:
+  - type: textarea
+    id: goal
+    attributes:
+      label: Goal
+      description: State the concrete outcome this task should produce.
+      placeholder: Build the top-level apartment analysis workflow as an ADK graph.
+    validations:
+      required: true
+
+  - type: textarea
+    id: in_scope
+    attributes:
+      label: In scope
+      description: List the work this task should include.
+      placeholder: |
+        - graph nodes for request validation and listing ingestion
+        - graph wiring for finance evaluation
+        - graph entrypoint through the service layer
+    validations:
+      required: true
+
+  - type: textarea
+    id: non_goals
+    attributes:
+      label: Non-goals
+      description: List work that should not be included in this task.
+      placeholder: |
+        - web UI
+        - finance policy recalibration
+        - adding new external data sources
+    validations:
+      required: true
+
+  - type: textarea
+    id: acceptance_criteria
+    attributes:
+      label: Acceptance criteria
+      description: Write observable conditions that define success.
+      placeholder: |
+        - top-level analysis is driven by an ADK graph
+        - deterministic steps stay outside model-owned logic
+        - failure handling is explicit and tested
+    validations:
+      required: true
+
+  - type: textarea
+    id: validation
+    attributes:
+      label: Validation
+      description: State the exact proof expected before the task is considered complete.
+      placeholder: |
+        - unit or integration tests
+        - exact commands to run
+        - sample fixtures or reports to inspect
+    validations:
+      required: true
+
+  - type: textarea
+    id: done_means
+    attributes:
+      label: Done means
+      description: Describe completion in direct, machine-checkable terms.
+      placeholder: |
+        - implementation is wired into the intended runtime path
+        - tests cover the new behavior
+        - CI passes
+        - docs or follow-up issues are updated where needed
+    validations:
+      required: true
+
+  - type: textarea
+    id: context_for_agents
+    attributes:
+      label: Context for agents
+      description: List the files, docs, fixtures, and related issues an AI agent should read first.
+      placeholder: |
+        - src/apartment_agents/adk/runner.py
+        - src/apartment_agents/app/services.py
+        - docs/finance-boundary.md
+        - issue #4
+    validations:
+      required: false
+
+  - type: textarea
+    id: notes
+    attributes:
+      label: Notes
+      description: Add constraints, tradeoffs, or background that does not fit above.
+    validations:
+      required: false

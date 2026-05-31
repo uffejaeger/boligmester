@@ -1,14 +1,26 @@
-## Summary
+Closes #
+
+## Why
 
 -
 
-## Changes
+## What Changed
 
 -
 
-## Tests
+## Scope
 
 -
+
+## Validation
+
+-
+
+## Done Means
+
+- acceptance criteria from the linked issue are met
+- validation evidence is included above
+- CI passes
 
 ## Risks / Follow-up
 

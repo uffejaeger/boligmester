@@ -1,2 +1,1 @@
 """ADK integration boundary."""
-
