@@ -11,7 +11,7 @@ This is still an early build focused on the first usable apartment analysis work
 Current implementation includes:
 
 * delivery planning in `plan.md`
-* execution backlog in `todo.md`
+* mission, vision, and goals in `plan.md`
 * a typed application service layer under `src/`
 * deterministic finance calculations
 * listing ingestion with fixture, live-fetch, browser-fallback, and imported-capture paths
@@ -29,6 +29,7 @@ Still in progress:
 
 * [Development setup](docs/development.md)
 * [Contribution guide](docs/contributing.md)
+* [Vision, mission, and goals](plan.md)
 * [Browser fetch contract](docs/browser-fetch-contract.md)
 * [Finance boundary](docs/finance-boundary.md)
 * [MVP validation notes](docs/mvp-validation-aarhus.md)
@@ -52,3 +53,5 @@ docs/
 ## Principles
 
 The project should stay honest about confidence, source quality, and missing data. It should not present shallow or weakly evidenced outputs as strong recommendations.
+
+Active work tracking belongs in GitHub Issues, not local markdown backlog files.

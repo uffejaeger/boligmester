@@ -1,25 +1,5 @@
 # Contributing
 
-## Workflow
-
-This repository uses a review-first workflow.
-
-Rules:
-
-1. Do not merge directly to `main`.
-2. Open a pull request for every change.
-3. Wait for review and approval before merge.
-4. Resolve review comments instead of bypassing them.
-
-Current `main` branch protection requires:
-
-* pull requests before merge
-* at least one approving review
-* code owner review
-* stale approvals dismissed on new commits
-* resolved review conversations
-* CI checks before merge
-
 ## Contribution Expectations
 
 Contributions should be narrow, test-backed, and explicit about tradeoffs.
@@ -30,7 +10,7 @@ Expected baseline:
 * keep deterministic finance logic outside LLM-driven code
 * preserve typed service boundaries
 * document new environment variables, scripts, or workflows
-* record meaningful follow-up work in `todo.md`
+* record meaningful follow-up work in GitHub Issues
 
 ## Pull Requests
 
@@ -64,4 +44,4 @@ If a source is blocked, partial, or stale:
 
 * surface that limitation in code and reporting
 * add regression coverage where practical
-* capture remaining work in `todo.md`
+* capture remaining work in GitHub Issues

@@ -8,7 +8,7 @@ Purpose:
 
 * create a first real-world listing set for MVP validation
 * record what the current implementation can and cannot handle
-* turn validation findings into backlog follow-up work
+* turn validation findings into GitHub Issue follow-up work
 * support repeatable reruns through the validation harness in `scripts/run_validation_set.py`
 
 ## Validation Set

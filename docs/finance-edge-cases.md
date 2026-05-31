@@ -8,7 +8,7 @@ Purpose:
 
 * record obvious finance edge cases for the current deterministic engine
 * make approval behavior explicit before policy calibration work
-* turn edge-case findings into follow-up backlog items
+* turn edge-case findings into follow-up GitHub Issues
 
 ## Cases Covered
 
