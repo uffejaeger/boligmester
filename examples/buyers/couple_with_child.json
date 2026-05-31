@@ -1,0 +1,17 @@
+{
+  "buyer_id": "couple_with_child",
+  "household": {
+    "adults": 2,
+    "children": 1,
+    "monthly_childcare_cost_dkk": 4200,
+    "vehicles": 1
+  },
+  "gross_annual_income_dkk": 1140000,
+  "net_monthly_income_dkk": 58000,
+  "savings_dkk": 700000,
+  "existing_debt_dkk": 180000,
+  "monthly_debt_payments_dkk": 3200,
+  "desired_down_payment_dkk": 450000,
+  "employment_notes": "Two salaried buyers",
+  "risk_tolerance": "moderate"
+}

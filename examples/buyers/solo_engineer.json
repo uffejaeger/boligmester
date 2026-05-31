@@ -1,0 +1,17 @@
+{
+  "buyer_id": "solo_engineer",
+  "household": {
+    "adults": 1,
+    "children": 0,
+    "monthly_childcare_cost_dkk": 0,
+    "vehicles": 0
+  },
+  "gross_annual_income_dkk": 960000,
+  "net_monthly_income_dkk": 47000,
+  "savings_dkk": 550000,
+  "existing_debt_dkk": 25000,
+  "monthly_debt_payments_dkk": 900,
+  "desired_down_payment_dkk": 300000,
+  "employment_notes": "Permanent software engineer role",
+  "risk_tolerance": "balanced"
+}

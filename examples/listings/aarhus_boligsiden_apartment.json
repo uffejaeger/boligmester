@@ -1,0 +1,32 @@
+{
+  "listing_id": "listing-aarhus-boligsiden-001",
+  "source": "boligsiden",
+  "url": "https://www.boligsiden.dk/adresse/frederiks-alle-12-3-th-8000-aarhus-c",
+  "address": {
+    "street": "Frederiks Alle 12, 3. th.",
+    "postal_code": "8000",
+    "city": "Aarhus C",
+    "municipality": "Aarhus"
+  },
+  "asking_price_dkk": 3295000,
+  "area_sqm": 82.0,
+  "rooms": 3,
+  "owner_cost_monthly_dkk": 3650,
+  "build_year": 1934,
+  "floor_label": "3. th.",
+  "balcony": true,
+  "elevator": false,
+  "energy_label": "C",
+  "raw_payload": {
+    "price_text": "3.295.000 kr",
+    "source_note": "Fixture-backed listing for MVP development"
+  },
+  "citations": [
+    {
+      "source_id": "listing-page-001",
+      "label": "Boligsiden listing",
+      "locator": "https://www.boligsiden.dk/adresse/frederiks-alle-12-3-th-8000-aarhus-c",
+      "snippet": "3 vaerelser, 82 m2, ejerudgift 3.650 kr/md"
+    }
+  ]
+}

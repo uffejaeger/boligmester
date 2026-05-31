@@ -1,0 +1,12 @@
+{
+  "bundle_id": "sample_bundle",
+  "listing_id": "listing-aarhus-boligsiden-001",
+  "documents": [
+    {
+      "document_id": "doc-001",
+      "kind": "owner-association-budget",
+      "title": "Ejerforening budget 2025",
+      "path": "examples/documents/ejerforening-budget-2025.pdf"
+    }
+  ]
+}

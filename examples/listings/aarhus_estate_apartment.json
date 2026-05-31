@@ -1,0 +1,32 @@
+{
+  "listing_id": "listing-aarhus-estate-001",
+  "source": "estate_agent",
+  "url": "https://www.estatemeglerne.dk/sag/aarhus-c-skovvejen-18-2-tv",
+  "address": {
+    "street": "Skovvejen 18, 2. tv.",
+    "postal_code": "8000",
+    "city": "Aarhus C",
+    "municipality": "Aarhus"
+  },
+  "asking_price_dkk": 4195000,
+  "area_sqm": 96.0,
+  "rooms": 4,
+  "owner_cost_monthly_dkk": 4120,
+  "build_year": 1907,
+  "floor_label": "2. tv.",
+  "balcony": false,
+  "elevator": false,
+  "energy_label": "D",
+  "raw_payload": {
+    "price_text": "4.195.000 kr",
+    "source_note": "Fixture-backed estate agent listing for MVP development"
+  },
+  "citations": [
+    {
+      "source_id": "listing-page-002",
+      "label": "Estate listing",
+      "locator": "https://www.estatemeglerne.dk/sag/aarhus-c-skovvejen-18-2-tv",
+      "snippet": "4 vaerelser, 96 m2, ejerudgift 4.120 kr/md"
+    }
+  ]
+}

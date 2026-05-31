@@ -1,0 +1,17 @@
+{
+  "snapshot_id": "market-aarhus-c-001",
+  "city": "Aarhus C",
+  "neighborhood": "Central Aarhus",
+  "average_price_per_sqm_dkk": 38250,
+  "median_days_on_market": 52,
+  "inventory_level": "medium",
+  "interest_rate_pct": 4.0,
+  "citations": [
+    {
+      "source_id": "market-fixture-001",
+      "label": "Aarhus market fixture",
+      "locator": "fixture://market/aarhus_c",
+      "snippet": "Fixture market snapshot for MVP development"
+    }
+  ]
+}

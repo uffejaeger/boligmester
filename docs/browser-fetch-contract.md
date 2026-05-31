@@ -1,0 +1,43 @@
+# Browser Fetch Contract
+
+Purpose:
+
+* define the integration contract for challenge-gated listing fetches
+* keep browser automation outside the core ingestion package
+
+## When It Is Used
+
+The browser fetch command is only used when:
+
+1. live listing fetch is enabled
+2. browser listing fetch is enabled
+3. plain HTTP fetch returns a blocked-page signal such as a Cloudflare challenge
+
+## Required Environment
+
+* `ENABLE_LIVE_LISTING_FETCH=true`
+* `ENABLE_BROWSER_LISTING_FETCH=true`
+* `BROWSER_LISTING_FETCH_COMMAND=...{url}...`
+
+## Command Contract
+
+The configured command must:
+
+* include a `{url}` placeholder
+* fetch the fully rendered listing page for that URL
+* print the final HTML document to stdout
+* return exit code `0` on success
+* return a non-zero exit code on failure
+
+The command should not:
+
+* print logs to stdout before the HTML
+* require interactive input
+* depend on TUI prompts or local manual steps
+
+## Current Limitation
+
+This repository now bundles a reference Playwright script at `scripts/fetch_rendered_listing.py`.
+It still depends on local installation of the Playwright Python package and browser binaries.
+When live browser automation is still blocked, captured HTML can be imported with
+`scripts/import_captured_listing.py` and used ahead of live fetches.

@@ -1,0 +1,7 @@
+# Aarhus validation set
+https://www.boligsiden.dk/adresse/odensegade-21-3-th-8000-aarhus-c-07510157___21___3____th
+https://www.boligsiden.dk/adresse/aaparken-6-2-4-8000-aarhus-c-07510157___6___2____4
+https://www.boligsiden.dk/adresse/frederiks-plads-8-5-5-8000-aarhus-c-07510157___8___5____5
+https://www.boligsiden.dk/adresse/aaboulevarden-51c-st-8000-aarhus-c-07510157__51c____st_
+https://www.boligsiden.dk/adresse/daugbjergvej-24-2-7-8000-aarhus-c-07510157___24___2____7
+https://www.boligsiden.dk/adresse/vester-alle-24a-1-th-8000-aarhus-c-07510157__24a___1____th
