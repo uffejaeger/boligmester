@@ -15,9 +15,7 @@ from apartment_agents.storage.fixtures import FixtureStore
 from apartment_agents.tools.listings import ListingIngestionService
 
 
-BOLIGSIDEN_FIXTURE_URL = (
-    "https://www.boligsiden.dk/adresse/frederiks-alle-12-3-th-8000-aarhus-c"
-)
+BOLIGSIDEN_FIXTURE_URL = "https://www.boligsiden.dk/adresse/frederiks-alle-12-3-th-8000-aarhus-c"
 
 
 class AnalysisWorkflowGraphDefinitionTest(unittest.TestCase):
@@ -39,9 +37,7 @@ class AnalysisWorkflowGraphDefinitionTest(unittest.TestCase):
         )
         self.assertEqual(definition.node("run_adk_agents").kind, AnalysisNodeKind.AGENT)
         deterministic_nodes = [
-            node.name
-            for node in definition.nodes
-            if node.kind == AnalysisNodeKind.DETERMINISTIC
+            node.name for node in definition.nodes if node.kind == AnalysisNodeKind.DETERMINISTIC
         ]
         self.assertEqual(
             deterministic_nodes,
