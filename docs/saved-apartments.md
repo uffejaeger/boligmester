@@ -17,12 +17,15 @@ Each saved row stores:
 ## TUI
 
 Open the Textual TUI and press `2` to search. After selecting a result, press
-`s` to save it. Press `6` from the main resource menu to list saved apartments,
-then press `a` or `enter` to reopen a saved apartment in URL analysis.
+`s` to save it. Press `6` from the main resource menu to list saved apartments
+in the watchlist view, then press `a` or `enter` to reopen a saved apartment in
+URL analysis.
 
 Press `5` from the main menu to compare saved apartments for a buyer profile.
+Press `6` and then `r` to refresh watchlist tracking.
 
 ## Current Limits
 
-Saved apartments do not yet track price changes, listing status changes, or
-notifications. Those belong to the later watchlist workflow.
+Saved apartments are the current candidate state. Watchlist snapshots track
+field-level changes over time, but listing status changes and notifications are
+not implemented yet.

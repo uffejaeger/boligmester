@@ -41,9 +41,9 @@ PLACEHOLDER_SCREENS = {
         "message": "Apartment comparison is available in the Textual TUI and saved to the local workspace.",
     },
     "6": {
-        "title": "Saved Apartments",
+        "title": "Watchlist",
         "status": "Available",
-        "message": "Saved apartments are available in the Textual TUI. Watchlist change tracking is not implemented yet.",
+        "message": "Watchlist tracking is available in the Textual TUI and saved to the local workspace.",
     },
     "7": {
         "title": "Reports",

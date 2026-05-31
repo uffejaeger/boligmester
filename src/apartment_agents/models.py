@@ -158,6 +158,40 @@ class ApartmentComparison:
 
 
 @dataclass(slots=True)
+class WatchlistSnapshot:
+    saved_id: str
+    listing_id: str
+    source: str
+    title: str
+    address: Address
+    url: str
+    asking_price_dkk: int | None = None
+    area_sqm: float | None = None
+    rooms: float | None = None
+    owner_cost_monthly_dkk: int | None = None
+    price_per_sqm_dkk: int | None = None
+    observed_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+
+
+@dataclass(slots=True)
+class WatchlistChange:
+    change_id: str
+    saved_id: str
+    field: str
+    old_value: Any | None
+    new_value: Any | None
+    detected_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+
+
+@dataclass(slots=True)
+class WatchlistRun:
+    run_id: str
+    snapshots: list[WatchlistSnapshot]
+    changes: list[WatchlistChange]
+    generated_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+
+
+@dataclass(slots=True)
 class HouseholdProfile:
     adults: int
     children: int = 0

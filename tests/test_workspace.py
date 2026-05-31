@@ -15,6 +15,9 @@ from apartment_agents.models import (
     ListingSearchRun,
     Recommendation,
     SavedApartment,
+    WatchlistChange,
+    WatchlistRun,
+    WatchlistSnapshot,
 )
 from apartment_agents.storage.workspace import LocalWorkspaceStore
 
@@ -181,6 +184,48 @@ class LocalWorkspaceStoreTest(unittest.TestCase):
             self.assertEqual(loaded.items[0].title, "Testvej 1")
             self.assertEqual(loaded.items[0].approval_likelihood, "high")
             self.assertEqual(comparisons[0].comparison_id, "comparison-1")
+
+    def test_save_watchlist_snapshot_and_run(self) -> None:
+        with TemporaryDirectory() as tmpdir:
+            store = LocalWorkspaceStore(Path(tmpdir))
+            snapshot = WatchlistSnapshot(
+                saved_id="boligsiden-listing-1",
+                listing_id="listing-1",
+                source="boligsiden",
+                title="Testvej 1",
+                address=Address(
+                    street="Testvej 1",
+                    postal_code="8000",
+                    city="Aarhus C",
+                ),
+                url="https://www.boligsiden.dk/adresse/test",
+                asking_price_dkk=3500000,
+                area_sqm=70,
+                price_per_sqm_dkk=50000,
+            )
+            change = WatchlistChange(
+                change_id="change-1",
+                saved_id="boligsiden-listing-1",
+                field="asking_price_dkk",
+                old_value=3500000,
+                new_value=3450000,
+            )
+            run = WatchlistRun(
+                run_id="watchlist-1",
+                snapshots=[snapshot],
+                changes=[change],
+            )
+
+            snapshot_path = store.save_watchlist_snapshot(snapshot)
+            run_path = store.save_watchlist_run(run)
+            snapshots = store.list_watchlist_snapshots()
+            runs = store.list_watchlist_runs()
+
+            self.assertTrue(snapshot_path.exists())
+            self.assertTrue(run_path.exists())
+            self.assertEqual(snapshots[0].saved_id, "boligsiden-listing-1")
+            self.assertEqual(runs[0].changes[0].field, "asking_price_dkk")
+            self.assertEqual(runs[0].changes[0].new_value, 3450000)
 
 
 if __name__ == "__main__":

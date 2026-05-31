@@ -18,6 +18,8 @@ The first workspace version stores:
 * apartment search runs in `search_runs/*.json`
 * saved apartments in `saved_apartments/*.json`
 * apartment comparisons in `comparisons/*.json`
+* watchlist snapshots in `watchlist/snapshots/*.json`
+* watchlist refresh runs in `watchlist/runs/*.json`
 * analysis run metadata in `analysis_runs/*.json`
 
 Generated Markdown reports still live under `REPORT_OUTPUT_DIR` and analysis run
@@ -51,8 +53,15 @@ profile. Comparison records store the structured candidate rows, deterministic
 finance outputs, explicit tradeoffs, and missing evidence. Markdown comparison
 reports are written under `REPORT_OUTPUT_DIR`.
 
+## Watchlist
+
+From the Textual TUI main menu, press `6` and then `r` to refresh watchlist
+tracking. The first refresh creates a baseline snapshot. Later refreshes compare
+the current saved-apartment fields with the last snapshot and persist structured
+field-level changes.
+
 ## Current Limits
 
-The workspace does not yet store watchlist change tracking, report annotations,
-or dashboard state. Those are the next product workflow layers on top of this
-persistence boundary.
+The workspace does not yet store report annotations, scheduled watchlist jobs,
+notifications, or dashboard state. Those are the next product workflow layers on
+top of this persistence boundary.

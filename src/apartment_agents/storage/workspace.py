@@ -19,6 +19,9 @@ from apartment_agents.models import (
     ListingSearchResult,
     ListingSearchRun,
     SavedApartment,
+    WatchlistChange,
+    WatchlistRun,
+    WatchlistSnapshot,
 )
 
 
@@ -44,6 +47,9 @@ class LocalWorkspaceStore:
         self.search_runs_dir = self.root / "search_runs"
         self.saved_apartments_dir = self.root / "saved_apartments"
         self.comparisons_dir = self.root / "comparisons"
+        self.watchlist_dir = self.root / "watchlist"
+        self.watchlist_snapshots_dir = self.watchlist_dir / "snapshots"
+        self.watchlist_runs_dir = self.watchlist_dir / "runs"
         self.ensure_directories()
 
     def ensure_directories(self) -> None:
@@ -52,6 +58,8 @@ class LocalWorkspaceStore:
         self.search_runs_dir.mkdir(parents=True, exist_ok=True)
         self.saved_apartments_dir.mkdir(parents=True, exist_ok=True)
         self.comparisons_dir.mkdir(parents=True, exist_ok=True)
+        self.watchlist_snapshots_dir.mkdir(parents=True, exist_ok=True)
+        self.watchlist_runs_dir.mkdir(parents=True, exist_ok=True)
 
     def save_buyer_profile(self, profile: BuyerProfile) -> Path:
         self._validate_safe_id(profile.buyer_id, "Buyer profile id")
@@ -157,6 +165,30 @@ class LocalWorkspaceStore:
         for path in sorted(self.comparisons_dir.glob("*.json")):
             comparisons.append(self._apartment_comparison_from_payload(self._read_json(path)))
         return sorted(comparisons, key=lambda comparison: comparison.generated_at, reverse=True)
+
+    def save_watchlist_snapshot(self, snapshot: WatchlistSnapshot) -> Path:
+        self._validate_safe_id(snapshot.saved_id, "Watchlist saved apartment id")
+        path = self.watchlist_snapshots_dir / f"{snapshot.saved_id}.json"
+        self._write_json(path, self._watchlist_snapshot_to_payload(snapshot))
+        return path
+
+    def list_watchlist_snapshots(self) -> list[WatchlistSnapshot]:
+        snapshots = []
+        for path in sorted(self.watchlist_snapshots_dir.glob("*.json")):
+            snapshots.append(self._watchlist_snapshot_from_payload(self._read_json(path)))
+        return sorted(snapshots, key=lambda snapshot: snapshot.observed_at, reverse=True)
+
+    def save_watchlist_run(self, run: WatchlistRun) -> Path:
+        self._validate_safe_id(run.run_id, "Watchlist run id")
+        path = self.watchlist_runs_dir / f"{run.run_id}.json"
+        self._write_json(path, self._watchlist_run_to_payload(run))
+        return path
+
+    def list_watchlist_runs(self) -> list[WatchlistRun]:
+        runs = []
+        for path in sorted(self.watchlist_runs_dir.glob("*.json")):
+            runs.append(self._watchlist_run_from_payload(self._read_json(path)))
+        return sorted(runs, key=lambda run: run.generated_at, reverse=True)
 
     def _validate_safe_id(self, value: str, label: str) -> None:
         if not SAFE_ID_PATTERN.fullmatch(value):
@@ -388,6 +420,87 @@ class LocalWorkspaceStore:
             safe_purchase_price_gap_dkk=payload.get("safe_purchase_price_gap_dkk"),
             tradeoffs=payload.get("tradeoffs", []),
             missing_evidence=payload.get("missing_evidence", []),
+        )
+
+    def _watchlist_snapshot_to_payload(self, snapshot: WatchlistSnapshot) -> dict[str, Any]:
+        return {
+            "saved_id": snapshot.saved_id,
+            "listing_id": snapshot.listing_id,
+            "source": snapshot.source,
+            "title": snapshot.title,
+            "address": {
+                "street": snapshot.address.street,
+                "postal_code": snapshot.address.postal_code,
+                "city": snapshot.address.city,
+                "municipality": snapshot.address.municipality,
+                "country_code": snapshot.address.country_code,
+            },
+            "url": snapshot.url,
+            "asking_price_dkk": snapshot.asking_price_dkk,
+            "area_sqm": snapshot.area_sqm,
+            "rooms": snapshot.rooms,
+            "owner_cost_monthly_dkk": snapshot.owner_cost_monthly_dkk,
+            "price_per_sqm_dkk": snapshot.price_per_sqm_dkk,
+            "observed_at": snapshot.observed_at.isoformat(),
+        }
+
+    def _watchlist_snapshot_from_payload(self, payload: dict[str, Any]) -> WatchlistSnapshot:
+        return WatchlistSnapshot(
+            saved_id=payload["saved_id"],
+            listing_id=payload["listing_id"],
+            source=payload["source"],
+            title=payload["title"],
+            address=Address(**payload["address"]),
+            url=payload["url"],
+            asking_price_dkk=payload.get("asking_price_dkk"),
+            area_sqm=payload.get("area_sqm"),
+            rooms=payload.get("rooms"),
+            owner_cost_monthly_dkk=payload.get("owner_cost_monthly_dkk"),
+            price_per_sqm_dkk=payload.get("price_per_sqm_dkk"),
+            observed_at=_datetime_from_iso(payload["observed_at"]),
+        )
+
+    def _watchlist_run_to_payload(self, run: WatchlistRun) -> dict[str, Any]:
+        return {
+            "run_id": run.run_id,
+            "generated_at": run.generated_at.isoformat(),
+            "snapshots": [
+                self._watchlist_snapshot_to_payload(snapshot) for snapshot in run.snapshots
+            ],
+            "changes": [self._watchlist_change_to_payload(change) for change in run.changes],
+        }
+
+    def _watchlist_run_from_payload(self, payload: dict[str, Any]) -> WatchlistRun:
+        return WatchlistRun(
+            run_id=payload["run_id"],
+            snapshots=[
+                self._watchlist_snapshot_from_payload(snapshot)
+                for snapshot in payload.get("snapshots", [])
+            ],
+            changes=[
+                self._watchlist_change_from_payload(change) for change in payload.get("changes", [])
+            ],
+            generated_at=_datetime_from_iso(payload["generated_at"]),
+        )
+
+    def _watchlist_change_to_payload(self, change: WatchlistChange) -> dict[str, Any]:
+        return {
+            "change_id": change.change_id,
+            "saved_id": change.saved_id,
+            "field": change.field,
+            "old_value": change.old_value,
+            "new_value": change.new_value,
+            "detected_at": change.detected_at.isoformat(),
+        }
+
+    def _watchlist_change_from_payload(self, payload: dict[str, Any]) -> WatchlistChange:
+        return WatchlistChange(
+            change_id=payload["change_id"],
+            saved_id=payload["saved_id"],
+            field=payload["field"],
+            old_value=payload.get("old_value"),
+            new_value=payload.get("new_value"),
+            detected_at=_datetime_from_iso(payload["detected_at"]),
         )
 
 
