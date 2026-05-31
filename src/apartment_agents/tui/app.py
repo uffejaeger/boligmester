@@ -41,9 +41,9 @@ PLACEHOLDER_SCREENS = {
         "message": "Apartment comparison is not implemented yet. The next build step is structured multi-listing comparison.",
     },
     "6": {
-        "title": "Watchlist",
-        "status": "Planned",
-        "message": "Watchlist support is not implemented yet. The next build step is local saved-apartment storage and change tracking.",
+        "title": "Saved Apartments",
+        "status": "Available",
+        "message": "Saved apartments are available in the Textual TUI. Watchlist change tracking is not implemented yet.",
     },
     "7": {
         "title": "Reports",

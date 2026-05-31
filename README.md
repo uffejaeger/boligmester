@@ -18,15 +18,16 @@ Current implementation includes:
 * listing ingestion with fixture, live-fetch, browser-fallback, and imported-capture paths
 * manifest-backed listing regression fixtures
 * apartment search workflow with fixture/live-fetch parsing and local persistence
+* saved-apartment workflow for revisiting candidate listings from the TUI
 * a validation harness for real-world URL sets
 * an explicit top-level analysis workflow graph with deterministic nodes and an ADK agent boundary
 * a terminal UI for URL analysis, apartment search, and buyer profiles
-* local workspace persistence for buyer profiles, search runs, and analysis run metadata
+* local workspace persistence for buyer profiles, search runs, saved apartments, and analysis run metadata
 
 Still in progress:
 
 * web productization and hosted workflows
-* saved apartments, graph views, and watchlists
+* graph views and watchlist change tracking
 
 ## Read Next
 
@@ -40,6 +41,7 @@ Still in progress:
 * [MVP validation notes](docs/mvp-validation-aarhus.md)
 * [Local workspace](docs/local-workspace.md)
 * [Apartment search workflow](docs/search-workflow.md)
+* [Saved apartments](docs/saved-apartments.md)
 
 ## Repository Layout
 

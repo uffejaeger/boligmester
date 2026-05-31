@@ -4,7 +4,7 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 from unittest.mock import patch
 
-from apartment_agents.app.services import AnalyzeApartmentService
+from apartment_agents.app.services import AnalyzeApartmentService, SearchApartmentsRequest
 from apartment_agents.config import AppConfig
 from apartment_agents.tui.app import render_main_menu, render_placeholder_screen, run
 
@@ -36,6 +36,12 @@ class TuiTest(unittest.TestCase):
         screen = render_placeholder_screen("9")
 
         self.assertIn("Buyer Profiles", screen)
+        self.assertIn("Status: Available", screen)
+
+    def test_render_placeholder_screen_for_saved_apartments(self) -> None:
+        screen = render_placeholder_screen("6")
+
+        self.assertIn("Saved Apartments", screen)
         self.assertIn("Status: Available", screen)
 
     def test_render_placeholder_screen_for_unknown_option(self) -> None:
@@ -199,6 +205,13 @@ class TuiTest(unittest.TestCase):
                     self.assertEqual(str(status.content), "search complete: 2 results saved")
                     self.assertEqual(results.row_count, 2)
 
+                    app.screen.action_save_selected_apartment()
+                    await pilot.pause(0.1)
+                    self.assertEqual(
+                        len(service.available_saved_apartments()),
+                        1,
+                    )
+
                     app.screen.action_analyze_selected()
                     await pilot.pause(0.1)
 
@@ -209,6 +222,37 @@ class TuiTest(unittest.TestCase):
                     "https://www.boligsiden.dk/adresse/frederiks-alle-12-3-th-8000-aarhus-c",
                 )
                 self.assertEqual(len(service.available_listing_searches()), 1)
+
+        asyncio.run(scenario())
+
+    @unittest.skipUnless(BoligmesterApp is not None, "Textual is an optional TUI extra")
+    def test_textual_saved_apartments_screen_opens_analyzer(self) -> None:
+        async def scenario() -> None:
+            with TemporaryDirectory() as tmpdir:
+                service = AnalyzeApartmentService(
+                    config=AppConfig(output_dir=Path(tmpdir), adk_backend="mock")
+                )
+                search = service.search_apartments(SearchApartmentsRequest(city="Aarhus C"))
+                service.save_search_result_apartment(search.search_run.results[0])
+                app = BoligmesterApp(service)
+
+                async with app.run_test(size=(110, 34)) as pilot:
+                    await pilot.pause(0.1)
+                    await pilot.press("6")
+                    await pilot.pause(0.1)
+
+                    table = app.screen.query_one("#saved-apartments", DataTable)
+                    self.assertEqual(table.row_count, 1)
+
+                    app.screen.action_analyze_selected()
+                    await pilot.pause(0.1)
+
+                    listing_url = app.screen.query_one("#listing-url", Input).value
+
+                self.assertEqual(
+                    listing_url,
+                    "https://www.boligsiden.dk/adresse/frederiks-alle-12-3-th-8000-aarhus-c",
+                )
 
         asyncio.run(scenario())
 

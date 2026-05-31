@@ -10,7 +10,12 @@ from apartment_agents.app.services import (
     AnalyzeApartmentService,
     SearchApartmentsRequest,
 )
-from apartment_agents.models import BuyerProfile, HouseholdProfile, ListingSearchResult
+from apartment_agents.models import (
+    BuyerProfile,
+    HouseholdProfile,
+    ListingSearchResult,
+    SavedApartment,
+)
 
 try:
     from textual import events, on
@@ -110,14 +115,14 @@ MENU_ENTRIES = [
     MenuEntry(
         key="watchlist",
         namespace="default",
-        name="watchlist",
-        ready="0/1",
-        status="Planned",
+        name="saved-apartments",
+        ready="1/1",
+        status="Running",
         kind="Store",
-        summary="Saved apartments and change tracking.",
+        summary="Save apartments and revisit them.",
         detail=(
-            "Watchlist support is not implemented yet. Next build step is local "
-            "saved-apartment storage and change tracking."
+            "Saved apartments are stored locally and can be reopened in the URL analyzer. "
+            "Change tracking remains a later watchlist workflow."
         ),
     ),
     MenuEntry(
@@ -232,6 +237,7 @@ def _entry_detail(entry: MenuEntry, service: AnalyzeApartmentService) -> str:
         f"{entry.summary}\n\n"
         f"{entry.detail}\n\n"
         f"Profiles: {len(service.available_buyer_profiles())}\n"
+        f"Saved:    {len(service.available_saved_apartments())}\n"
         f"Output:   {service.config.output_dir}"
     )
 
@@ -280,6 +286,8 @@ class CommandTable(DataTable):
             self.app.screen.action_load_sample()
         elif row_key.value == "search":
             asyncio.create_task(self.app.screen.action_run_search())
+        elif row_key.value == "save-apartment":
+            self.app.screen.action_save_selected_apartment()
         elif row_key.value == "analyze-selected":
             self.app.screen.action_analyze_selected()
         elif row_key.value == "save":
@@ -290,6 +298,7 @@ class MenuScreen(Screen[None]):
     BINDINGS = [
         Binding("1", "open_analyzer", "Analyze"),
         Binding("2", "open_search", "Search"),
+        Binding("6", "open_watchlist", "Saved"),
         Binding("p", "open_profiles", "Profiles"),
         Binding("9", "open_profiles", "Profiles"),
         Binding("7", "open_reports", "Reports"),
@@ -322,6 +331,7 @@ class MenuScreen(Screen[None]):
                 ("enter", "Open"),
                 ("1", "Analyze"),
                 ("2", "Search"),
+                ("6", "Saved"),
                 ("p", "Profiles"),
                 ("7", "Reports"),
                 ("esc", "Back"),
@@ -364,6 +374,9 @@ class MenuScreen(Screen[None]):
     def action_open_search(self) -> None:
         self._open_entry("search")
 
+    def action_open_watchlist(self) -> None:
+        self._open_entry("watchlist")
+
     def action_open_profiles(self) -> None:
         self._open_entry("profiles")
 
@@ -383,6 +396,9 @@ class MenuScreen(Screen[None]):
             return
         if key == "search":
             self.app.push_screen(SearchScreen(self.app.service))
+            return
+        if key == "watchlist":
+            self.app.push_screen(SavedApartmentsScreen(self.app.service))
             return
         if key == "profiles":
             self.app.push_screen(ProfileScreen(self.app.service))
@@ -416,6 +432,7 @@ class PlaceholderScreen(Screen[None]):
 class SearchScreen(Screen[None]):
     BINDINGS = [
         Binding("f", "run_search", "Search"),
+        Binding("s", "save_selected_apartment", "Save"),
         Binding("a", "analyze_selected", "Analyze"),
     ]
 
@@ -470,6 +487,7 @@ class SearchScreen(Screen[None]):
                 ("up/down", "Move"),
                 ("enter", "Run command"),
                 ("f", "Search"),
+                ("s", "Save selected"),
                 ("a", "Analyze selected"),
                 ("esc", "Back"),
                 ("q", "Quit"),
@@ -482,6 +500,7 @@ class SearchScreen(Screen[None]):
         commands.add_column("KEY", width=5)
         commands.add_column("ACTION", width=24)
         commands.add_row("f", "search-apartments", key="search")
+        commands.add_row("s", "save-selected", key="save-apartment")
         commands.add_row("a", "analyze-selected", key="analyze-selected")
 
         results = self.query_one("#search-results", DataTable)
@@ -495,6 +514,8 @@ class SearchScreen(Screen[None]):
     async def search_command_selected(self, event: DataTable.RowSelected) -> None:
         if event.row_key.value == "search":
             await self.action_run_search()
+        elif event.row_key.value == "save-apartment":
+            self.action_save_selected_apartment()
         elif event.row_key.value == "analyze-selected":
             self.action_analyze_selected()
 
@@ -555,6 +576,20 @@ class SearchScreen(Screen[None]):
             return
         self.app.push_screen(AnalyzeScreen(self.service, initial_listing_url=result.url))
 
+    def action_save_selected_apartment(self) -> None:
+        status = self.query_one("#search-status", Static)
+        result = self._selected_result()
+        if result is None:
+            status.update(Text("select a search result first", style="bold #ff6b6b"))
+            return
+        saved = self.service.save_search_result_apartment(result)
+        status.update(
+            Text(
+                f"saved apartment {saved.saved_apartment.saved_id}",
+                style="bold #7ddf64",
+            )
+        )
+
     def _refresh_search_table(self) -> None:
         table = self.query_one("#search-results", DataTable)
         table.clear()
@@ -614,6 +649,129 @@ class SearchScreen(Screen[None]):
         if not value:
             return None
         return float(value.replace(",", "."))
+
+
+class SavedApartmentsScreen(Screen[None]):
+    BINDINGS = [
+        Binding("a", "analyze_selected", "Analyze"),
+    ]
+
+    def __init__(self, service: AnalyzeApartmentService) -> None:
+        super().__init__()
+        self.service = service
+        self._selected_id: str | None = None
+
+    def compose(self) -> ComposeResult:
+        yield Vertical(
+            _top_bar("workspace/saved-apartments", self.service),
+            Horizontal(
+                Vertical(
+                    Static("SAVED APARTMENTS", classes="pane-title"),
+                    DataTable(
+                        id="saved-apartments",
+                        cursor_type="row",
+                        show_row_labels=False,
+                        zebra_stripes=True,
+                    ),
+                    classes="resource-pane",
+                ),
+                Vertical(
+                    Static("DETAIL", classes="pane-title"),
+                    Static("", id="saved-apartment-detail", classes="describe-body"),
+                    classes="describe-pane",
+                ),
+                classes="main-split",
+            ),
+            _key_bar(
+                ("up/down", "Move"),
+                ("enter", "Analyze"),
+                ("a", "Analyze selected"),
+                ("esc", "Back"),
+                ("q", "Quit"),
+            ),
+            classes="screen-frame",
+        )
+
+    def on_mount(self) -> None:
+        table = self.query_one("#saved-apartments", DataTable)
+        table.add_column("ADDRESS", width=30)
+        table.add_column("PRICE", width=14)
+        table.add_column("AREA", width=9)
+        table.add_column("TAGS", width=14)
+        apartments = self.service.available_saved_apartments()
+        for apartment in apartments:
+            table.add_row(
+                apartment.address.street,
+                _format_optional_dkk(apartment.asking_price_dkk),
+                _format_optional_sqm(apartment.area_sqm),
+                ", ".join(apartment.tags) or "-",
+                key=apartment.saved_id,
+            )
+        if apartments:
+            self._selected_id = apartments[0].saved_id
+            self._show_saved_apartment_detail(apartments[0].saved_id)
+        else:
+            self.query_one("#saved-apartment-detail", Static).update("No saved apartments.")
+        self.set_timer(0.05, table.focus)
+
+    @on(DataTable.RowHighlighted, "#saved-apartments")
+    def saved_apartment_highlighted(self, event: DataTable.RowHighlighted) -> None:
+        if event.row_key.value is not None:
+            self._selected_id = str(event.row_key.value)
+            self._show_saved_apartment_detail(self._selected_id)
+
+    @on(DataTable.RowSelected, "#saved-apartments")
+    def saved_apartment_selected(self, event: DataTable.RowSelected) -> None:
+        if event.row_key.value is not None:
+            self._selected_id = str(event.row_key.value)
+            self.action_analyze_selected()
+
+    def action_analyze_selected(self) -> None:
+        apartment = self._selected_apartment()
+        if apartment is None:
+            self.query_one("#saved-apartment-detail", Static).update("No saved apartment selected.")
+            return
+        self.app.push_screen(AnalyzeScreen(self.service, initial_listing_url=apartment.url))
+
+    def _show_saved_apartment_detail(self, saved_id: str) -> None:
+        apartment = next(
+            (
+                candidate
+                for candidate in self.service.available_saved_apartments()
+                if candidate.saved_id == saved_id
+            ),
+            None,
+        )
+        if apartment is None:
+            return
+        self.query_one("#saved-apartment-detail", Static).update(
+            "\n".join(
+                [
+                    f"[b]{apartment.title}[/b]",
+                    f"URL: {apartment.url}",
+                    f"Address: {apartment.address.street}, {apartment.address.postal_code} {apartment.address.city}",
+                    f"Price: {_format_optional_dkk(apartment.asking_price_dkk)}",
+                    f"Area: {_format_optional_sqm(apartment.area_sqm)}",
+                    f"Rooms: {_format_optional_rooms(apartment.rooms)}",
+                    f"Owner cost: {_format_optional_dkk(apartment.owner_cost_monthly_dkk)}",
+                    f"Price/m2: {_format_optional_dkk(apartment.price_per_sqm_dkk)}",
+                    f"Tags: {', '.join(apartment.tags) or '-'}",
+                    f"Notes: {apartment.notes or '-'}",
+                ]
+            )
+        )
+
+    def _selected_apartment(self) -> SavedApartment | None:
+        if self._selected_id is None:
+            return None
+        return next(
+            (
+                candidate
+                for candidate in self.service.available_saved_apartments()
+                if candidate.saved_id == self._selected_id
+            ),
+            None,
+        )
 
 
 class AnalyzeScreen(Screen[None]):
@@ -1078,7 +1236,7 @@ class BoligmesterApp(App[None]):
     }
 
     #command-table, #search-command-table, #profile-command-table {
-        height: 4;
+        height: 5;
         margin-top: 1;
     }
 

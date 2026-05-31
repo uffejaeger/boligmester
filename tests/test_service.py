@@ -115,6 +115,23 @@ class AnalyzeApartmentServiceTest(unittest.TestCase):
                 service.available_listing_searches()[0].search_id, result.search_run.search_id
             )
 
+    def test_search_result_can_be_saved_as_apartment(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            service = AnalyzeApartmentService(
+                config=AppConfig(output_dir=Path(tmpdir), adk_backend="mock"),
+            )
+            search = service.search_apartments(SearchApartmentsRequest(city="Aarhus C"))
+
+            saved = service.save_search_result_apartment(search.search_run.results[0])
+
+            self.assertTrue(saved.workspace_path.exists())
+            self.assertEqual(saved.saved_apartment.tags, ["search"])
+            self.assertEqual(len(service.available_saved_apartments()), 1)
+            self.assertEqual(
+                service.available_saved_apartments()[0].url,
+                search.search_run.results[0].url,
+            )
+
     def test_analyze_reports_imported_capture_assumption(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             service = AnalyzeApartmentService(

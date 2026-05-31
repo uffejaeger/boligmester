@@ -160,4 +160,4 @@ See `docs/search-workflow.md` for the search inputs and persistence shape.
 ## Local Workspace
 
 See `docs/local-workspace.md` for persisted buyer profiles, apartment searches,
-and analysis run metadata.
+saved apartments, and analysis run metadata.

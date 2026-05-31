@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -17,10 +18,13 @@ from apartment_agents.finance.models import FinanceResult
 from apartment_agents.finance.service import FinanceBoundary
 from apartment_agents.logging import get_logger, log_kv
 from apartment_agents.models import (
+    Address,
     AnalysisReport,
     BuyerProfile,
     ListingSearchCriteria,
+    ListingSearchResult,
     ListingSearchRun,
+    SavedApartment,
 )
 from apartment_agents.storage.fixtures import FixtureStore
 from apartment_agents.storage.workspace import LocalWorkspaceStore
@@ -62,6 +66,28 @@ class SearchApartmentsRequest:
 @dataclass(slots=True)
 class SearchApartmentsResult:
     search_run: ListingSearchRun
+    workspace_path: Path
+
+
+@dataclass(slots=True)
+class SaveApartmentRequest:
+    listing_id: str
+    source: str
+    url: str
+    title: str
+    address: Address
+    asking_price_dkk: int | None = None
+    area_sqm: float | None = None
+    rooms: float | None = None
+    owner_cost_monthly_dkk: int | None = None
+    notes: str | None = None
+    tags: list[str] | None = None
+    raw_payload: dict[str, object] | None = None
+
+
+@dataclass(slots=True)
+class SaveApartmentResult:
+    saved_apartment: SavedApartment
     workspace_path: Path
 
 
@@ -180,6 +206,56 @@ class AnalyzeApartmentService:
     def available_listing_searches(self) -> list[ListingSearchRun]:
         return self.workspace_store.list_listing_searches()
 
+    def save_apartment(self, request: SaveApartmentRequest) -> SaveApartmentResult:
+        apartment = SavedApartment(
+            saved_id=_saved_apartment_id(request.source, request.listing_id),
+            listing_id=request.listing_id,
+            source=request.source,
+            url=request.url,
+            title=request.title,
+            address=request.address,
+            asking_price_dkk=request.asking_price_dkk,
+            area_sqm=request.area_sqm,
+            rooms=request.rooms,
+            owner_cost_monthly_dkk=request.owner_cost_monthly_dkk,
+            notes=request.notes,
+            tags=request.tags or [],
+            raw_payload=request.raw_payload or {},
+        )
+        path = self.workspace_store.save_saved_apartment(apartment)
+        log_kv(
+            logger,
+            20,
+            "apartment_saved",
+            saved_id=apartment.saved_id,
+            listing_url=apartment.url,
+            path=str(path),
+        )
+        return SaveApartmentResult(saved_apartment=apartment, workspace_path=path)
+
+    def save_search_result_apartment(
+        self, result: ListingSearchResult, notes: str | None = None
+    ) -> SaveApartmentResult:
+        return self.save_apartment(
+            SaveApartmentRequest(
+                listing_id=result.listing_id,
+                source=result.source,
+                url=result.url,
+                title=result.title,
+                address=result.address,
+                asking_price_dkk=result.asking_price_dkk,
+                area_sqm=result.area_sqm,
+                rooms=result.rooms,
+                owner_cost_monthly_dkk=result.owner_cost_monthly_dkk,
+                notes=notes,
+                tags=["search"],
+                raw_payload=result.raw_payload,
+            )
+        )
+
+    def available_saved_apartments(self) -> list[SavedApartment]:
+        return self.workspace_store.list_saved_apartments()
+
     def save_buyer_profile(self, profile: BuyerProfile) -> Path:
         path = self.workspace_store.save_buyer_profile(profile)
         log_kv(
@@ -195,3 +271,8 @@ class AnalyzeApartmentService:
         self.fixture_store.validate_startup()
         validate_runner_startup(self.config)
         log_kv(logger, 20, "service_startup_validated")
+
+
+def _saved_apartment_id(source: str, listing_id: str) -> str:
+    value = f"{source}-{listing_id}"
+    return re.sub(r"[^A-Za-z0-9_-]+", "-", value).strip("-")

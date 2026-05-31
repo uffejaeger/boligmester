@@ -12,6 +12,7 @@ from apartment_agents.models import (
     ListingSearchResult,
     ListingSearchRun,
     Recommendation,
+    SavedApartment,
 )
 from apartment_agents.storage.workspace import LocalWorkspaceStore
 
@@ -108,6 +109,35 @@ class LocalWorkspaceStoreTest(unittest.TestCase):
             self.assertEqual(len(searches), 1)
             self.assertEqual(searches[0].criteria.city, "Aarhus C")
             self.assertEqual(searches[0].results[0].title, "Testvej 1")
+
+    def test_save_and_load_saved_apartment(self) -> None:
+        with TemporaryDirectory() as tmpdir:
+            store = LocalWorkspaceStore(Path(tmpdir))
+            apartment = SavedApartment(
+                saved_id="boligsiden-listing-1",
+                listing_id="listing-1",
+                source="boligsiden",
+                url="https://www.boligsiden.dk/adresse/test",
+                title="Testvej 1",
+                address=Address(
+                    street="Testvej 1",
+                    postal_code="8000",
+                    city="Aarhus C",
+                ),
+                asking_price_dkk=3500000,
+                area_sqm=70,
+                rooms=3,
+                tags=["search"],
+            )
+
+            path = store.save_saved_apartment(apartment)
+            loaded = store.load_saved_apartment("boligsiden-listing-1")
+            apartments = store.list_saved_apartments()
+
+            self.assertTrue(path.exists())
+            self.assertEqual(loaded.title, "Testvej 1")
+            self.assertEqual(loaded.price_per_sqm_dkk, 50000)
+            self.assertEqual(apartments[0].saved_id, "boligsiden-listing-1")
 
 
 if __name__ == "__main__":
