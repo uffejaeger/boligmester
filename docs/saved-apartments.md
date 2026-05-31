@@ -20,6 +20,8 @@ Open the Textual TUI and press `2` to search. After selecting a result, press
 `s` to save it. Press `6` from the main resource menu to list saved apartments,
 then press `a` or `enter` to reopen a saved apartment in URL analysis.
 
+Press `5` from the main menu to compare saved apartments for a buyer profile.
+
 ## Current Limits
 
 Saved apartments do not yet track price changes, listing status changes, or

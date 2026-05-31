@@ -37,8 +37,8 @@ PLACEHOLDER_SCREENS = {
     },
     "5": {
         "title": "Compare Apartments",
-        "status": "Planned",
-        "message": "Apartment comparison is not implemented yet. The next build step is structured multi-listing comparison.",
+        "status": "Available",
+        "message": "Apartment comparison is available in the Textual TUI and saved to the local workspace.",
     },
     "6": {
         "title": "Saved Apartments",

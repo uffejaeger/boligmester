@@ -4,6 +4,8 @@ from tempfile import TemporaryDirectory
 
 from apartment_agents.models import (
     Address,
+    ApartmentComparison,
+    ApartmentComparisonItem,
     AnalysisReport,
     BuyerProfile,
     HouseholdProfile,
@@ -138,6 +140,47 @@ class LocalWorkspaceStoreTest(unittest.TestCase):
             self.assertEqual(loaded.title, "Testvej 1")
             self.assertEqual(loaded.price_per_sqm_dkk, 50000)
             self.assertEqual(apartments[0].saved_id, "boligsiden-listing-1")
+
+    def test_save_and_load_apartment_comparison(self) -> None:
+        with TemporaryDirectory() as tmpdir:
+            store = LocalWorkspaceStore(Path(tmpdir))
+            comparison = ApartmentComparison(
+                comparison_id="comparison-1",
+                buyer_profile_id="solo",
+                recommended_saved_id="boligsiden-listing-1",
+                summary="Compared 2 saved apartments.",
+                items=[
+                    ApartmentComparisonItem(
+                        saved_id="boligsiden-listing-1",
+                        listing_id="listing-1",
+                        title="Testvej 1",
+                        address=Address(
+                            street="Testvej 1",
+                            postal_code="8000",
+                            city="Aarhus C",
+                        ),
+                        url="https://www.boligsiden.dk/adresse/test",
+                        asking_price_dkk=3500000,
+                        area_sqm=70,
+                        price_per_sqm_dkk=50000,
+                        approval_likelihood="high",
+                        debt_factor=3.4,
+                        monthly_housing_cost_dkk=18000,
+                        safe_purchase_price_gap_dkk=250000,
+                        tradeoffs=["Lowest price per m2 among compared apartments."],
+                    )
+                ],
+            )
+
+            path = store.save_apartment_comparison(comparison)
+            loaded = store.load_apartment_comparison("comparison-1")
+            comparisons = store.list_apartment_comparisons()
+
+            self.assertTrue(path.exists())
+            self.assertEqual(loaded.buyer_profile_id, "solo")
+            self.assertEqual(loaded.items[0].title, "Testvej 1")
+            self.assertEqual(loaded.items[0].approval_likelihood, "high")
+            self.assertEqual(comparisons[0].comparison_id, "comparison-1")
 
 
 if __name__ == "__main__":

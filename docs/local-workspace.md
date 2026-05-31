@@ -17,6 +17,7 @@ The first workspace version stores:
 * buyer profiles in `buyer_profiles/*.json`
 * apartment search runs in `search_runs/*.json`
 * saved apartments in `saved_apartments/*.json`
+* apartment comparisons in `comparisons/*.json`
 * analysis run metadata in `analysis_runs/*.json`
 
 Generated Markdown reports still live under `REPORT_OUTPUT_DIR` and analysis run
@@ -42,6 +43,13 @@ features.
 From the Textual TUI search screen, press `s` to save the selected apartment.
 Press `6` from the main resource menu to revisit saved apartments and open one in
 the URL analyzer.
+
+## Comparisons
+
+From the Textual TUI main menu, press `5` to compare saved apartments for a buyer
+profile. Comparison records store the structured candidate rows, deterministic
+finance outputs, explicit tradeoffs, and missing evidence. Markdown comparison
+reports are written under `REPORT_OUTPUT_DIR`.
 
 ## Current Limits
 
