@@ -16,12 +16,12 @@ Current implementation includes:
 * deterministic finance calculations
 * listing ingestion with fixture, live-fetch, browser-fallback, and imported-capture paths
 * a validation harness for real-world URL sets
+* an explicit top-level analysis workflow graph with deterministic nodes and an ADK agent boundary
 * a terminal UI for the first analysis flow
 
 Still in progress:
 
 * real ADK runtime verification with sub-agent delegation
-* ADK graph orchestration for the top-level analysis workflow
 * broader real-world listing coverage and regression fixtures
 * web productization and hosted workflows
 
@@ -30,6 +30,7 @@ Still in progress:
 * [Development setup](docs/development.md)
 * [Contribution guide](docs/contributing.md)
 * [Vision, mission, and goals](plan.md)
+* [ADK analysis graph](docs/adk-analysis-graph.md)
 * [Browser fetch contract](docs/browser-fetch-contract.md)
 * [Finance boundary](docs/finance-boundary.md)
 * [MVP validation notes](docs/mvp-validation-aarhus.md)
