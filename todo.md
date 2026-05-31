@@ -540,8 +540,9 @@ Done when:
 * [ ] Plugin or extension model
 * [ ] Operational safeguards
 * [ ] Community benchmarks and contribution guides
-* [-] Public GitHub repository setup for `uffejaeger/boligmester`
-* [ ] GitHub branch protection requiring pull requests and approval on `main`
+* [x] Public GitHub repository setup for `uffejaeger/boligmester`
+* [-] GitHub branch protection requiring pull requests and approval on `main`
+* [-] GitHub automation baseline: Dependabot and required CI
 * [ ] OSS metadata: description, topics, social preview, and pinned docs
 * [ ] Contributor governance: issue templates, PR template, review policy, and maintainer standards
 * [ ] Initial public release checklist and first tagged version
@@ -553,9 +554,9 @@ Done when:
 If work continues immediately, the highest-leverage slice is:
 
 1. `P5 Productization & Community`
-   - create the public `uffejaeger/boligmester` repository
-   - apply branch protection and PR review requirements on `main`
-   - publish OSS metadata and contributor workflow files
+   - finish required CI wiring on `main`
+   - make branch protection require the CI job set
+   - add issue templates and remaining OSS metadata
 2. `P1.8 MVP Validation`
    - add imported-capture validation mode
    - rerun the Aarhus URL set through the validation harness

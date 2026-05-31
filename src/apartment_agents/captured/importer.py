@@ -32,7 +32,9 @@ class CapturedListingImporter:
         self.capture_dir.mkdir(parents=True, exist_ok=True)
         index = self._load_index()
         existing_document_name = self._existing_document_name(index, url)
-        resolved_document_name = document_name or existing_document_name or self._default_document_name(url)
+        resolved_document_name = (
+            document_name or existing_document_name or self._default_document_name(url)
+        )
         document_path = self.capture_dir / resolved_document_name
         document_path.write_text(html, encoding="utf-8")
         replaced_existing = existing_document_name is not None
@@ -50,7 +52,9 @@ class CapturedListingImporter:
                 }
             )
         index["items"] = sorted(index["items"], key=lambda item: str(item["url"]))
-        self.index_path.write_text(json.dumps(index, indent=2, ensure_ascii=True) + "\n", encoding="utf-8")
+        self.index_path.write_text(
+            json.dumps(index, indent=2, ensure_ascii=True) + "\n", encoding="utf-8"
+        )
         return CapturedListingImportResult(
             url=url,
             document_name=resolved_document_name,
@@ -67,7 +71,9 @@ class CapturedListingImporter:
             raise ValueError("Captured listing index must contain an items list.")
         return {"items": items}
 
-    def _existing_document_name(self, index: dict[str, list[dict[str, str]]], url: str) -> str | None:
+    def _existing_document_name(
+        self, index: dict[str, list[dict[str, str]]], url: str
+    ) -> str | None:
         for item in index["items"]:
             if item["url"] == url:
                 return str(item["document"])

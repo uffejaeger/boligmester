@@ -14,8 +14,7 @@ from apartment_agents.models import Address, Listing, SourceCitation
 class ListingParser(Protocol):
     source_name: str
 
-    def parse(self, url: str, document: str) -> Listing:
-        ...
+    def parse(self, url: str, document: str) -> Listing: ...
 
 
 @dataclass(slots=True)
@@ -176,7 +175,9 @@ class BoligsidenParser(HtmlListingParser):
             if match:
                 return int(match.group(1).replace(".", ""))
         if required:
-            raise ListingIngestionError(f"Could not extract required integer field from text: {patterns}")
+            raise ListingIngestionError(
+                f"Could not extract required integer field from text: {patterns}"
+            )
         return None
 
     def _extract_float(self, text: str, patterns: list[str], required: bool = True) -> float | None:
@@ -185,7 +186,9 @@ class BoligsidenParser(HtmlListingParser):
             if match:
                 return float(match.group(1).replace(".", "").replace(",", "."))
         if required:
-            raise ListingIngestionError(f"Could not extract required numeric field from text: {patterns}")
+            raise ListingIngestionError(
+                f"Could not extract required numeric field from text: {patterns}"
+            )
         return None
 
     def _extract_bool(self, text: str, label: str) -> bool | None:

@@ -226,12 +226,16 @@ class AnalyzeApartmentService:
             return assumptions
         if assumptions:
             return assumptions
-        return ["Listing analysis currently uses fixture-backed ingestion rather than live scraping."]
+        return [
+            "Listing analysis currently uses fixture-backed ingestion rather than live scraping."
+        ]
 
     def _listing_unresolved_questions(self, listing) -> list[str]:
         missing_fields = listing.raw_payload.get("missing_fields", [])
         if not missing_fields:
             return []
         return [
-            "Listing extraction could not confirm: " + ", ".join(str(item) for item in missing_fields) + "."
+            "Listing extraction could not confirm: "
+            + ", ".join(str(item) for item in missing_fields)
+            + "."
         ]

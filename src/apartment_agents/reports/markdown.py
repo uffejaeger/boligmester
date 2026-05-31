@@ -27,7 +27,9 @@ def render_report_markdown(report: AnalysisReport, finance_result: FinanceResult
         lines.append(f"- Listing field coverage: {field_coverage}")
     missing_fields = report.listing.raw_payload.get("missing_fields", [])
     if missing_fields:
-        lines.append(f"- Missing extracted fields: {', '.join(str(item) for item in missing_fields)}")
+        lines.append(
+            f"- Missing extracted fields: {', '.join(str(item) for item in missing_fields)}"
+        )
     lines.extend(
         [
             "",

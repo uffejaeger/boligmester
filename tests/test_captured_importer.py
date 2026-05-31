@@ -22,12 +22,16 @@ class CapturedListingImporterTest(unittest.TestCase):
                 source_html_path=source,
             )
 
-            index = json.loads((root / "captured_listings" / "index.json").read_text(encoding="utf-8"))
+            index = json.loads(
+                (root / "captured_listings" / "index.json").read_text(encoding="utf-8")
+            )
             document_exists = result.document_path.exists()
 
         self.assertFalse(result.replaced_existing)
         self.assertTrue(document_exists)
-        self.assertEqual(index["items"][0]["url"], "https://www.boligsiden.dk/adresse/test-apartment")
+        self.assertEqual(
+            index["items"][0]["url"], "https://www.boligsiden.dk/adresse/test-apartment"
+        )
         self.assertEqual(index["items"][0]["document"], "test_apartment_capture.html")
 
     def test_import_html_reuses_existing_entry_for_same_url(self) -> None:

@@ -51,21 +51,17 @@ class AgentResponse:
 class AgentAggregationPolicy:
     minimum_successful_agents: int = 1
     allow_partial_results: bool = True
-    recommendation_priority: list[str] = field(
-        default_factory=lambda: ["AVOID", "MAYBE", "BUY"]
-    )
+    recommendation_priority: list[str] = field(default_factory=lambda: ["AVOID", "MAYBE", "BUY"])
     require_citations: bool = True
 
 
 class Agent(Protocol):
     name: str
 
-    def analyze(self, request: AgentRequest) -> AgentResponse:
-        ...
+    def analyze(self, request: AgentRequest) -> AgentResponse: ...
 
 
 class DataTool(Protocol):
     name: str
 
-    def fetch(self, query: dict[str, Any]) -> dict[str, Any]:
-        ...
+    def fetch(self, query: dict[str, Any]) -> dict[str, Any]: ...

@@ -31,16 +31,16 @@ class FinanceBoundary:
         buyer: BuyerProfile,
     ) -> FinanceResult:
         inputs = FinanceInputs(
-                gross_annual_income_dkk=buyer.gross_annual_income_dkk,
-                net_monthly_income_dkk=buyer.net_monthly_income_dkk,
-                savings_dkk=buyer.savings_dkk,
-                existing_debt_dkk=buyer.existing_debt_dkk,
-                monthly_debt_payments_dkk=buyer.monthly_debt_payments_dkk,
-                asking_price_dkk=listing.asking_price_dkk,
-                owner_cost_monthly_dkk=listing.owner_cost_monthly_dkk or 0,
-                adults=buyer.household.adults,
-                children=buyer.household.children,
-                monthly_childcare_cost_dkk=buyer.household.monthly_childcare_cost_dkk,
+            gross_annual_income_dkk=buyer.gross_annual_income_dkk,
+            net_monthly_income_dkk=buyer.net_monthly_income_dkk,
+            savings_dkk=buyer.savings_dkk,
+            existing_debt_dkk=buyer.existing_debt_dkk,
+            monthly_debt_payments_dkk=buyer.monthly_debt_payments_dkk,
+            asking_price_dkk=listing.asking_price_dkk,
+            owner_cost_monthly_dkk=listing.owner_cost_monthly_dkk or 0,
+            adults=buyer.household.adults,
+            children=buyer.household.children,
+            monthly_childcare_cost_dkk=buyer.household.monthly_childcare_cost_dkk,
         )
         log_kv(
             logger,

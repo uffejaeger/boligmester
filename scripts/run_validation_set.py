@@ -60,9 +60,13 @@ def main(argv: list[str] | None = None) -> int:
         input_label=str(url_file),
     )
     payload = batch_report_to_json(batch_report)
-    output_path = Path(args.output_json) if args.output_json else default_output_path(
-        config.output_dir,
-        url_file,
+    output_path = (
+        Path(args.output_json)
+        if args.output_json
+        else default_output_path(
+            config.output_dir,
+            url_file,
+        )
     )
     output_path.parent.mkdir(parents=True, exist_ok=True)
     output_path.write_text(payload, encoding="utf-8")

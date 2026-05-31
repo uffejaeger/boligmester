@@ -1,7 +1,11 @@
 import unittest
 from unittest.mock import patch
 
-from apartment_agents.app.errors import ConfigValidationError, ListingFetchBlockedError, ListingFetchError
+from apartment_agents.app.errors import (
+    ConfigValidationError,
+    ListingFetchBlockedError,
+    ListingFetchError,
+)
 from apartment_agents.tools.browser import BrowserCommandPageFetcher
 from apartment_agents.tools.http import BlockedPageFallbackFetcher
 

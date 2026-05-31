@@ -61,7 +61,9 @@ class FixtureStore:
         try:
             payload = self._read_json(path)
         except FileNotFoundError as exc:
-            raise MarketSnapshotNotFoundError(f"Market snapshot fixture missing for city: {city}") from exc
+            raise MarketSnapshotNotFoundError(
+                f"Market snapshot fixture missing for city: {city}"
+            ) from exc
         return self._to_market_snapshot(payload)
 
     def load_document_bundle(self, bundle_id: str) -> DocumentBundle:

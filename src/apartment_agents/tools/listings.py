@@ -3,7 +3,11 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from urllib.parse import urlparse
 
-from apartment_agents.app.errors import FixtureNotFoundError, ListingIngestionError, UnsupportedListingDomainError
+from apartment_agents.app.errors import (
+    FixtureNotFoundError,
+    ListingIngestionError,
+    UnsupportedListingDomainError,
+)
 from apartment_agents.config import AppConfig
 from apartment_agents.logging import get_logger, log_kv
 from apartment_agents.models import Listing
@@ -45,7 +49,9 @@ class ListingIngestionService:
             ingestion_source = "fixture"
         except FixtureNotFoundError:
             try:
-                capture_name, document = self.fixture_store.load_captured_listing_document(normalized_url)
+                capture_name, document = self.fixture_store.load_captured_listing_document(
+                    normalized_url
+                )
                 log_kv(
                     logger,
                     20,
@@ -60,12 +66,22 @@ class ListingIngestionService:
                     raise ListingIngestionError(
                         "No fixture or captured listing matched the URL and live listing fetch is disabled."
                     )
-                log_kv(logger, 20, "listing_live_fetch_started", url=normalized_url, source=source_name)
+                log_kv(
+                    logger, 20, "listing_live_fetch_started", url=normalized_url, source=source_name
+                )
                 document = self.fetcher.fetch_text(normalized_url)
-                log_kv(logger, 20, "listing_live_fetch_completed", url=normalized_url, source=source_name)
+                log_kv(
+                    logger,
+                    20,
+                    "listing_live_fetch_completed",
+                    url=normalized_url,
+                    source=source_name,
+                )
                 ingestion_source = "live_fetch"
         except Exception as exc:
-            raise ListingIngestionError(f"Could not load listing document for URL: {normalized_url}") from exc
+            raise ListingIngestionError(
+                f"Could not load listing document for URL: {normalized_url}"
+            ) from exc
 
         parser = self.parsers[source_name]
         listing = parser.parse(normalized_url, document)

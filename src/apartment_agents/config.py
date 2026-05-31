@@ -71,9 +71,7 @@ class AppConfig:
                 f"Unsupported ADK_BACKEND '{self.adk_backend}'. Expected 'mock' or 'google_adk'."
             )
         if self.adk_backend == "google_adk" and not self.google_api_key:
-            raise ConfigValidationError(
-                "GOOGLE_API_KEY is required when ADK_BACKEND=google_adk."
-            )
+            raise ConfigValidationError("GOOGLE_API_KEY is required when ADK_BACKEND=google_adk.")
         if self.adk_timeout_seconds <= 0:
             raise ConfigValidationError("ADK_TIMEOUT_SECONDS must be a positive integer.")
         if self.http_timeout_seconds <= 0:

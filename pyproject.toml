@@ -8,7 +8,7 @@ version = "0.1.0"
 description = "Terminal-first AI-native property buying assistant for the Danish housing market."
 readme = "README.md"
 requires-python = ">=3.11"
-license = { text = "MIT" }
+license = "MIT"
 authors = [
   { name = "Boligmester contributors" }
 ]
@@ -18,8 +18,11 @@ dependencies = [
 
 [project.optional-dependencies]
 dev = [
+  "build>=1.2",
   "pytest>=8.0",
   "ruff>=0.5",
+  "setuptools>=68",
+  "wheel",
 ]
 browser = [
   "playwright>=1.0",
