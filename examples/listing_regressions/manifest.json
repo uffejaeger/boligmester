@@ -1,0 +1,108 @@
+{
+  "cases": [
+    {
+      "case_id": "boligsiden_full_card",
+      "description": "Visible Boligsiden listing card with all tracked fields.",
+      "source": "boligsiden",
+      "url": "https://www.boligsiden.dk/adresse/aaparken-6-2-4-8000-aarhus-c-07510157___6___2____4",
+      "document": "boligsiden_full_card.html",
+      "expected": {
+        "outcome": "success",
+        "asking_price_dkk": 3845000,
+        "area_sqm": 84.0,
+        "rooms": 3.0,
+        "field_coverage_ratio": 1.0,
+        "missing_fields": []
+      }
+    },
+    {
+      "case_id": "boligsiden_partial_core",
+      "description": "Partial visible HTML where only core listing fields remain.",
+      "source": "boligsiden",
+      "url": "https://www.boligsiden.dk/adresse/frederiks-plads-8-5-5-8000-aarhus-c-07510157___8___5____5",
+      "document": "boligsiden_partial_core.html",
+      "expected": {
+        "outcome": "success",
+        "asking_price_dkk": 4995000,
+        "area_sqm": 102.0,
+        "rooms": null,
+        "field_coverage_ratio": 0.38,
+        "missing_fields": [
+          "rooms",
+          "owner_cost_monthly_dkk",
+          "build_year",
+          "elevator",
+          "balcony"
+        ]
+      }
+    },
+    {
+      "case_id": "boligsiden_label_drift",
+      "description": "Boligsiden-like layout with label text drift around price, area, rooms, and owner costs.",
+      "source": "boligsiden",
+      "url": "https://www.boligsiden.dk/adresse/aaboulevarden-51c-st-8000-aarhus-c-07510157__51c____st_",
+      "document": "boligsiden_label_drift.html",
+      "expected": {
+        "outcome": "success",
+        "asking_price_dkk": 2895000,
+        "area_sqm": 58.0,
+        "rooms": 2.0,
+        "field_coverage_ratio": 1.0,
+        "missing_fields": []
+      }
+    },
+    {
+      "case_id": "boligsiden_decimal_area",
+      "description": "Layout drift with decimal area and labels without colons.",
+      "source": "boligsiden",
+      "url": "https://www.boligsiden.dk/adresse/daugbjergvej-24-2-7-8000-aarhus-c-07510157___24___2____7",
+      "document": "boligsiden_decimal_area.html",
+      "expected": {
+        "outcome": "success",
+        "asking_price_dkk": 3295000,
+        "area_sqm": 71.5,
+        "rooms": 3.0,
+        "field_coverage_ratio": 1.0,
+        "missing_fields": []
+      }
+    },
+    {
+      "case_id": "boligsiden_blocked_cloudflare",
+      "description": "Blocked page shell returned instead of listing HTML.",
+      "source": "boligsiden",
+      "url": "https://www.boligsiden.dk/adresse/vester-alle-24a-1-th-8000-aarhus-c-07510157__24a___1____th",
+      "document": "boligsiden_blocked_cloudflare.html",
+      "expected": {
+        "outcome": "failure",
+        "failure_class": "blocked_page",
+        "error_contains": "Blocked Boligsiden page"
+      }
+    },
+    {
+      "case_id": "boligsiden_shell_without_listing",
+      "description": "Application shell or consent page without listing details.",
+      "source": "boligsiden",
+      "url": "https://www.boligsiden.dk/adresse/odensegade-21-3-th-8000-aarhus-c-07510157___21___3____th",
+      "document": "boligsiden_shell_without_listing.html",
+      "expected": {
+        "outcome": "failure",
+        "failure_class": "missing_listing_markup",
+        "error_contains": "Could not extract address"
+      }
+    },
+    {
+      "case_id": "estate_embedded_json",
+      "description": "Estate fixture layout with embedded structured payload.",
+      "source": "estate_agent",
+      "url": "https://www.estatemeglerne.dk/sag/aarhus-c-skovvejen-18-2-tv",
+      "document": "estate_embedded_json.html",
+      "expected": {
+        "outcome": "success",
+        "asking_price_dkk": 4195000,
+        "area_sqm": 96.0,
+        "rooms": 4.0,
+        "source_document": "html_fixture"
+      }
+    }
+  ]
+}

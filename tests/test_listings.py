@@ -1,12 +1,19 @@
+import json
 import unittest
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
-from apartment_agents.app.errors import ListingFetchBlockedError, UnsupportedListingDomainError
+from apartment_agents.app.errors import (
+    ListingFetchBlockedError,
+    ListingIngestionError,
+    UnsupportedListingDomainError,
+)
 from apartment_agents.config import AppConfig
 from apartment_agents.storage.fixtures import FixtureStore
 from apartment_agents.tools.listing_parsers import BoligsidenParser
 from apartment_agents.tools.listings import ListingIngestionService
+
+REGRESSION_FIXTURE_ROOT = Path("examples/listing_regressions")
 
 
 class ListingIngestionServiceTest(unittest.TestCase):
@@ -91,6 +98,63 @@ class ListingIngestionServiceTest(unittest.TestCase):
         self.assertIn("rooms", listing.raw_payload["missing_fields"])
         self.assertIn("owner_cost_monthly_dkk", listing.raw_payload["missing_fields"])
         self.assertLess(listing.raw_payload["field_coverage_ratio"], 1.0)
+
+    def test_listing_regression_fixtures_cover_layout_and_failure_classes(self) -> None:
+        service = ListingIngestionService(FixtureStore())
+        manifest = json.loads((REGRESSION_FIXTURE_ROOT / "manifest.json").read_text())
+        cases = manifest["cases"]
+
+        self.assertGreaterEqual(len(cases), 5)
+        self.assertIn(
+            "blocked_page",
+            {
+                case["expected"].get("failure_class")
+                for case in cases
+                if case["expected"]["outcome"] == "failure"
+            },
+        )
+        self.assertIn(
+            "missing_listing_markup",
+            {
+                case["expected"].get("failure_class")
+                for case in cases
+                if case["expected"]["outcome"] == "failure"
+            },
+        )
+
+        for case in cases:
+            with self.subTest(case_id=case["case_id"]):
+                parser = service.parsers[case["source"]]
+                document = (REGRESSION_FIXTURE_ROOT / case["document"]).read_text(encoding="utf-8")
+                expected = case["expected"]
+
+                if expected["outcome"] == "failure":
+                    with self.assertRaises(ListingIngestionError) as raised:
+                        parser.parse(case["url"], document)
+                    self.assertIn(expected["error_contains"], str(raised.exception))
+                    continue
+
+                listing = parser.parse(case["url"], document)
+
+                self.assertEqual(listing.source, case["source"])
+                self.assertEqual(listing.url, case["url"])
+                self.assertEqual(listing.asking_price_dkk, expected["asking_price_dkk"])
+                self.assertEqual(listing.area_sqm, expected["area_sqm"])
+                self.assertEqual(listing.rooms, expected["rooms"])
+                if "field_coverage_ratio" in expected:
+                    self.assertEqual(
+                        listing.raw_payload["field_coverage_ratio"],
+                        expected["field_coverage_ratio"],
+                    )
+                    self.assertEqual(
+                        listing.raw_payload["missing_fields"],
+                        expected["missing_fields"],
+                    )
+                if "source_document" in expected:
+                    self.assertEqual(
+                        listing.raw_payload["source_document"],
+                        expected["source_document"],
+                    )
 
     def test_live_fetch_path_raises_blocked_error_for_cloudflare_page(self) -> None:
         class BlockedFetcher:

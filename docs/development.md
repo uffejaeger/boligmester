@@ -137,3 +137,9 @@ PYTHONPATH=src python3 scripts/import_captured_listing.py \
   'https://www.boligsiden.dk/adresse/your-listing' \
   /path/to/captured.html
 ```
+
+## Listing Regression Fixtures
+
+Parser layout and failure-shape fixtures live in `examples/listing_regressions/`.
+See `docs/listing-regression-fixtures.md` for the manifest format and covered
+fixture classes.
