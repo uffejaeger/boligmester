@@ -335,7 +335,7 @@ class ApartmentAnalysisWorkflowGraph:
             assumptions=[
                 *self._listing_assumptions(listing),
                 "Market pricing currently uses one city-level fixture snapshot.",
-                "Credit policy thresholds are conservative placeholders and must be calibrated.",
+                "Credit policy is a deterministic Danish screening heuristic, not a lender decision.",
                 *self.finance_boundary.policy_notes(),
             ],
             unresolved_questions=[

@@ -1,0 +1,92 @@
+{
+  "scenarios": [
+    {
+      "name": "single_standard_aarhus_apartment",
+      "description": "Single buyer with standard Aarhus apartment owner costs and debt factor below 4.",
+      "inputs": {
+        "gross_annual_income_dkk": 960000,
+        "net_monthly_income_dkk": 47000,
+        "savings_dkk": 550000,
+        "existing_debt_dkk": 25000,
+        "monthly_debt_payments_dkk": 900,
+        "asking_price_dkk": 3295000,
+        "owner_cost_monthly_dkk": 3650,
+        "adults": 1,
+        "children": 0,
+        "monthly_childcare_cost_dkk": 0,
+        "nominal_interest_rate_pct": 4.0
+      },
+      "expected": {
+        "approval_likelihood": "high",
+        "required_monthly_buffer_dkk": 7900,
+        "debt_factor_status": "standard"
+      }
+    },
+    {
+      "name": "couple_with_child_high_owner_cost",
+      "description": "Couple with one child where high owner costs leave a tight stressed buffer.",
+      "inputs": {
+        "gross_annual_income_dkk": 1140000,
+        "net_monthly_income_dkk": 58000,
+        "savings_dkk": 700000,
+        "existing_debt_dkk": 180000,
+        "monthly_debt_payments_dkk": 3200,
+        "asking_price_dkk": 4195000,
+        "owner_cost_monthly_dkk": 8500,
+        "adults": 2,
+        "children": 1,
+        "monthly_childcare_cost_dkk": 4200,
+        "nominal_interest_rate_pct": 4.0
+      },
+      "expected": {
+        "approval_likelihood": "medium",
+        "required_monthly_buffer_dkk": 17370,
+        "debt_factor_status": "standard"
+      }
+    },
+    {
+      "name": "high_debt_factor_with_resilient_savings",
+      "description": "Debt factor above 4 is elevated risk, but liquid savings keep net wealth positive under a 10% price shock.",
+      "inputs": {
+        "gross_annual_income_dkk": 960000,
+        "net_monthly_income_dkk": 47000,
+        "savings_dkk": 1000000,
+        "existing_debt_dkk": 0,
+        "monthly_debt_payments_dkk": 0,
+        "asking_price_dkk": 4300000,
+        "owner_cost_monthly_dkk": 3650,
+        "adults": 1,
+        "children": 0,
+        "monthly_childcare_cost_dkk": 0,
+        "nominal_interest_rate_pct": 4.0
+      },
+      "expected": {
+        "approval_likelihood": "medium",
+        "required_monthly_buffer_dkk": 7900,
+        "debt_factor_status": "elevated"
+      }
+    },
+    {
+      "name": "high_debt_factor_without_resilient_savings",
+      "description": "Debt factor above 4 drops to low when savings do not absorb the relevant price-fall shock.",
+      "inputs": {
+        "gross_annual_income_dkk": 960000,
+        "net_monthly_income_dkk": 47000,
+        "savings_dkk": 250000,
+        "existing_debt_dkk": 0,
+        "monthly_debt_payments_dkk": 0,
+        "asking_price_dkk": 4300000,
+        "owner_cost_monthly_dkk": 3650,
+        "adults": 1,
+        "children": 0,
+        "monthly_childcare_cost_dkk": 0,
+        "nominal_interest_rate_pct": 4.0
+      },
+      "expected": {
+        "approval_likelihood": "low",
+        "required_monthly_buffer_dkk": 7900,
+        "debt_factor_status": "elevated"
+      }
+    }
+  ]
+}
