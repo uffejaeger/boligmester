@@ -6,7 +6,7 @@ from dataclasses import dataclass
 from rich.text import Text
 
 from apartment_agents.app.services import AnalyzeApartmentRequest, AnalyzeApartmentService
-from apartment_agents.models import BuyerProfile
+from apartment_agents.models import BuyerProfile, HouseholdProfile
 
 try:
     from textual import events, on
@@ -111,6 +111,19 @@ MENU_ENTRIES = [
         detail=(
             "Watchlist support is not implemented yet. Next build step is local "
             "saved-apartment storage and change tracking."
+        ),
+    ),
+    MenuEntry(
+        key="profiles",
+        namespace="workspace",
+        name="buyer-profiles",
+        ready="1/1",
+        status="Running",
+        kind="Store",
+        summary="Create and save buyer profiles.",
+        detail=(
+            "Buyer profiles can be created from the TUI and are saved to the local "
+            "workspace so they are available next time Boligmester starts."
         ),
     ),
     MenuEntry(
@@ -242,12 +255,16 @@ class CommandTable(DataTable):
             asyncio.create_task(self.app.screen.action_run_analysis())
         elif row_key.value == "sample":
             self.app.screen.action_load_sample()
+        elif row_key.value == "save":
+            asyncio.create_task(self.app.screen.action_save_profile())
 
 
 class MenuScreen(Screen[None]):
     BINDINGS = [
         Binding("1", "open_analyzer", "Analyze"),
         Binding("2", "open_search", "Search"),
+        Binding("p", "open_profiles", "Profiles"),
+        Binding("9", "open_profiles", "Profiles"),
         Binding("7", "open_reports", "Reports"),
         Binding("8", "open_settings", "Settings"),
     ]
@@ -277,6 +294,7 @@ class MenuScreen(Screen[None]):
                 ("up/down", "Move"),
                 ("enter", "Open"),
                 ("1", "Analyze"),
+                ("p", "Profiles"),
                 ("7", "Reports"),
                 ("esc", "Back"),
                 ("q", "Quit"),
@@ -318,6 +336,9 @@ class MenuScreen(Screen[None]):
     def action_open_search(self) -> None:
         self._open_entry("search")
 
+    def action_open_profiles(self) -> None:
+        self._open_entry("profiles")
+
     def action_open_reports(self) -> None:
         self._open_entry("reports")
 
@@ -331,6 +352,9 @@ class MenuScreen(Screen[None]):
     def _open_entry(self, key: str) -> None:
         if key == "analyze":
             self.app.push_screen(AnalyzeScreen(self.app.service))
+            return
+        if key == "profiles":
+            self.app.push_screen(ProfileScreen(self.app.service))
             return
 
         entry = _entry_by_key(key)
@@ -513,6 +537,197 @@ class AnalyzeScreen(Screen[None]):
         report_tile.update(f"[b]{result.report_path.name}[/b]\nREPORT")
         evidence_tile.update(f"[b]{finding_count} findings[/b]\n{open_questions} open questions")
         await report.update(result.report_markdown)
+
+
+class ProfileScreen(Screen[None]):
+    BINDINGS = [
+        Binding("s", "save_profile", "Save"),
+    ]
+
+    def __init__(self, service: AnalyzeApartmentService) -> None:
+        super().__init__()
+        self.service = service
+
+    def compose(self) -> ComposeResult:
+        yield Vertical(
+            _top_bar("workspace/buyer-profiles", self.service),
+            Horizontal(
+                VerticalScroll(
+                    Static("PROFILE", classes="pane-title"),
+                    Static("PROFILE ID", classes="field-label"),
+                    Input(placeholder="first_time_buyer", id="profile-id"),
+                    Static("ADULTS", classes="field-label"),
+                    Input(value="1", id="profile-adults"),
+                    Static("CHILDREN", classes="field-label"),
+                    Input(value="0", id="profile-children"),
+                    Static("MONTHLY CHILDCARE COST DKK", classes="field-label"),
+                    Input(value="0", id="profile-childcare"),
+                    Static("VEHICLES", classes="field-label"),
+                    Input(value="0", id="profile-vehicles"),
+                    Static("NET MONTHLY INCOME DKK", classes="field-label"),
+                    Input(placeholder="47000", id="profile-net-income"),
+                    Static("GROSS ANNUAL INCOME DKK", classes="field-label"),
+                    Input(placeholder="960000", id="profile-gross-income"),
+                    Static("SAVINGS DKK", classes="field-label"),
+                    Input(placeholder="550000", id="profile-savings"),
+                    Static("EXISTING DEBT DKK", classes="field-label"),
+                    Input(value="0", id="profile-existing-debt"),
+                    Static("MONTHLY DEBT PAYMENTS DKK", classes="field-label"),
+                    Input(value="0", id="profile-monthly-debt"),
+                    Static("DESIRED DOWN PAYMENT DKK", classes="field-label"),
+                    Input(placeholder="300000", id="profile-down-payment"),
+                    Static("RISK TOLERANCE", classes="field-label"),
+                    Input(value="balanced", id="profile-risk"),
+                    Static("EMPLOYMENT NOTES", classes="field-label"),
+                    Input(placeholder="Permanent employment", id="profile-notes"),
+                    CommandTable(
+                        id="profile-command-table",
+                        cursor_type="row",
+                        show_header=False,
+                        show_row_labels=False,
+                    ),
+                    Static("", id="profile-status", classes="status-line"),
+                    classes="form-pane",
+                ),
+                Vertical(
+                    Static("SAVED PROFILES", classes="pane-title"),
+                    DataTable(
+                        id="profile-list",
+                        cursor_type="row",
+                        show_row_labels=False,
+                        zebra_stripes=True,
+                    ),
+                    Static("", id="profile-detail", classes="describe-body"),
+                    classes="output-pane",
+                ),
+                classes="main-split",
+            ),
+            _key_bar(
+                ("up/down", "Move"),
+                ("enter", "Run command"),
+                ("s", "Save profile"),
+                ("esc", "Back"),
+                ("q", "Quit"),
+            ),
+            classes="screen-frame",
+        )
+
+    def on_mount(self) -> None:
+        commands = self.query_one("#profile-command-table", DataTable)
+        commands.add_column("KEY", width=5)
+        commands.add_column("ACTION", width=24)
+        commands.add_row("s", "save-profile", key="save")
+
+        profiles = self.query_one("#profile-list", DataTable)
+        profiles.add_column("PROFILE", width=20)
+        profiles.add_column("NET/MO", width=14)
+        profiles.add_column("SAVINGS", width=14)
+        profiles.add_column("RISK", width=12)
+        self._refresh_profile_table()
+        self.set_timer(0.05, self.query_one("#profile-id", Input).focus)
+
+    @on(DataTable.RowSelected, "#profile-command-table")
+    async def profile_command_selected(self, event: DataTable.RowSelected) -> None:
+        if event.row_key.value == "save":
+            await self.action_save_profile()
+
+    @on(DataTable.RowHighlighted, "#profile-list")
+    def profile_highlighted(self, event: DataTable.RowHighlighted) -> None:
+        profile_id = event.row_key.value
+        if profile_id is not None:
+            self._show_profile_detail(str(profile_id))
+
+    async def action_save_profile(self) -> None:
+        status = self.query_one("#profile-status", Static)
+        try:
+            profile = self._profile_from_form()
+            self.service.save_buyer_profile(profile)
+        except Exception as exc:
+            status.update(Text(f"profile error: {exc}", style="bold #ff6b6b"))
+            return
+
+        self._refresh_profile_table()
+        self._show_profile_detail(profile.buyer_id)
+        status.update(Text(f"saved profile {profile.buyer_id}", style="bold #7ddf64"))
+
+    def _profile_from_form(self) -> BuyerProfile:
+        profile_id = self._input_value("profile-id")
+        if not profile_id:
+            raise ValueError("profile id is required")
+        return BuyerProfile(
+            buyer_id=profile_id,
+            household=HouseholdProfile(
+                adults=self._required_int("profile-adults"),
+                children=self._required_int("profile-children"),
+                monthly_childcare_cost_dkk=self._required_int("profile-childcare"),
+                vehicles=self._required_int("profile-vehicles"),
+            ),
+            gross_annual_income_dkk=self._required_int("profile-gross-income"),
+            net_monthly_income_dkk=self._required_int("profile-net-income"),
+            savings_dkk=self._required_int("profile-savings"),
+            existing_debt_dkk=self._required_int("profile-existing-debt"),
+            monthly_debt_payments_dkk=self._required_int("profile-monthly-debt"),
+            desired_down_payment_dkk=self._optional_int("profile-down-payment"),
+            employment_notes=self._input_value("profile-notes") or None,
+            risk_tolerance=self._input_value("profile-risk") or "balanced",
+        )
+
+    def _refresh_profile_table(self) -> None:
+        table = self.query_one("#profile-list", DataTable)
+        table.clear()
+        for profile in self.service.available_buyer_profiles():
+            table.add_row(
+                profile.buyer_id,
+                _format_dkk(profile.net_monthly_income_dkk),
+                _format_dkk(profile.savings_dkk),
+                profile.risk_tolerance,
+                key=profile.buyer_id,
+            )
+
+    def _show_profile_detail(self, profile_id: str) -> None:
+        profile = next(
+            (
+                candidate
+                for candidate in self.service.available_buyer_profiles()
+                if candidate.buyer_id == profile_id
+            ),
+            None,
+        )
+        if profile is None:
+            return
+        self.query_one("#profile-detail", Static).update(
+            "\n".join(
+                [
+                    f"[b]{profile.buyer_id}[/b]",
+                    f"Adults: {profile.household.adults}",
+                    f"Children: {profile.household.children}",
+                    f"Monthly childcare: {_format_dkk(profile.household.monthly_childcare_cost_dkk)}",
+                    f"Vehicles: {profile.household.vehicles}",
+                    f"Net monthly income: {_format_dkk(profile.net_monthly_income_dkk)}",
+                    f"Gross annual income: {_format_dkk(profile.gross_annual_income_dkk)}",
+                    f"Savings: {_format_dkk(profile.savings_dkk)}",
+                    f"Existing debt: {_format_dkk(profile.existing_debt_dkk)}",
+                    f"Monthly debt payments: {_format_dkk(profile.monthly_debt_payments_dkk)}",
+                    f"Risk: {profile.risk_tolerance}",
+                    f"Notes: {profile.employment_notes or '-'}",
+                ]
+            )
+        )
+
+    def _input_value(self, widget_id: str) -> str:
+        return self.query_one(f"#{widget_id}", Input).value.strip()
+
+    def _required_int(self, widget_id: str) -> int:
+        value = self._input_value(widget_id)
+        if not value:
+            raise ValueError(f"{widget_id.replace('-', ' ')} is required")
+        return int(value)
+
+    def _optional_int(self, widget_id: str) -> int | None:
+        value = self._input_value(widget_id)
+        if not value:
+            return None
+        return int(value)
 
 
 class BoligmesterApp(App[None]):

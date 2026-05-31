@@ -10,10 +10,11 @@ from apartment_agents.tui.app import render_main_menu, render_placeholder_screen
 
 try:
     from apartment_agents.tui.textual_ui import BoligmesterApp
-    from textual.widgets import DataTable, Static
+    from textual.widgets import DataTable, Input, Static
 except ImportError:  # pragma: no cover - Textual is an optional extra
     BoligmesterApp = None
     DataTable = None
+    Input = None
     Static = None
 
 
@@ -23,12 +24,19 @@ class TuiTest(unittest.TestCase):
 
         self.assertIn("Boligmester", menu)
         self.assertIn("1 Analyze Apartment URL", menu)
+        self.assertIn("9 Buyer Profiles", menu)
 
     def test_render_placeholder_screen_for_search(self) -> None:
         screen = render_placeholder_screen("2")
 
         self.assertIn("Search Apartments", screen)
         self.assertIn("Status: Planned", screen)
+
+    def test_render_placeholder_screen_for_profiles(self) -> None:
+        screen = render_placeholder_screen("9")
+
+        self.assertIn("Buyer Profiles", screen)
+        self.assertIn("Status: Available", screen)
 
     def test_render_placeholder_screen_for_unknown_option(self) -> None:
         screen = render_placeholder_screen("99")
@@ -120,6 +128,50 @@ class TuiTest(unittest.TestCase):
                     await pilot.press("down")
                     await pilot.pause(0.1)
                     self.assertEqual(command_table.cursor_row, 1)
+
+        asyncio.run(scenario())
+
+    @unittest.skipUnless(BoligmesterApp is not None, "Textual is an optional TUI extra")
+    def test_textual_profile_screen_saves_profile(self) -> None:
+        async def scenario() -> None:
+            with TemporaryDirectory() as tmpdir:
+                service = AnalyzeApartmentService(
+                    config=AppConfig(output_dir=Path(tmpdir), adk_backend="mock")
+                )
+                app = BoligmesterApp(service)
+
+                async with app.run_test(size=(100, 34)) as pilot:
+                    await pilot.pause(0.1)
+                    await pilot.press("p")
+                    await pilot.pause(0.1)
+
+                    app.screen.query_one("#profile-id", Input).value = "tui_profile"
+                    app.screen.query_one("#profile-adults", Input).value = "2"
+                    app.screen.query_one("#profile-children", Input).value = "1"
+                    app.screen.query_one("#profile-childcare", Input).value = "2500"
+                    app.screen.query_one("#profile-vehicles", Input).value = "1"
+                    app.screen.query_one("#profile-net-income", Input).value = "62000"
+                    app.screen.query_one("#profile-gross-income", Input).value = "1200000"
+                    app.screen.query_one("#profile-savings", Input).value = "700000"
+                    app.screen.query_one("#profile-existing-debt", Input).value = "50000"
+                    app.screen.query_one("#profile-monthly-debt", Input).value = "1500"
+                    app.screen.query_one("#profile-down-payment", Input).value = "400000"
+                    app.screen.query_one("#profile-risk", Input).value = "balanced"
+                    app.screen.query_one("#profile-notes", Input).value = "Two permanent contracts"
+
+                    await app.screen.action_save_profile()
+                    await pilot.pause(0.1)
+
+                    status = app.screen.query_one("#profile-status", Static)
+
+                self.assertEqual(str(status.content), "saved profile tui_profile")
+                self.assertIn(
+                    "tui_profile",
+                    [profile.buyer_id for profile in service.available_buyer_profiles()],
+                )
+                profile = service.fixture_store.load_buyer_profile("tui_profile")
+                self.assertEqual(profile.household.monthly_childcare_cost_dkk, 2500)
+                self.assertEqual(profile.household.vehicles, 1)
 
         asyncio.run(scenario())
 

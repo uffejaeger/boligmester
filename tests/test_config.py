@@ -2,6 +2,7 @@ import unittest
 from importlib import import_module
 from pathlib import Path
 from tempfile import TemporaryDirectory
+from unittest.mock import patch
 
 from apartment_agents.app.errors import AdkRuntimeUnavailableError, ConfigValidationError
 from apartment_agents.adk.runner import validate_runner_startup
@@ -13,6 +14,24 @@ class AppConfigTest(unittest.TestCase):
         with TemporaryDirectory() as tmpdir:
             config = AppConfig(output_dir=Path(tmpdir), adk_backend="mock")
             self.assertEqual(config.adk_backend, "mock")
+            self.assertEqual(config.workspace_dir, Path(tmpdir) / "workspace")
+            self.assertTrue(config.workspace_dir.exists())
+
+    def test_workspace_dir_can_be_loaded_from_env(self) -> None:
+        with TemporaryDirectory() as tmpdir:
+            workspace_dir = Path(tmpdir) / "custom-workspace"
+            with patch.dict(
+                "os.environ",
+                {
+                    "REPORT_OUTPUT_DIR": str(Path(tmpdir) / "reports"),
+                    "BOLIGMESTER_WORKSPACE_DIR": str(workspace_dir),
+                },
+                clear=False,
+            ):
+                config = AppConfig.load()
+
+            self.assertEqual(config.workspace_dir, workspace_dir)
+            self.assertTrue(workspace_dir.exists())
 
     def test_google_adk_backend_requires_google_api_key(self) -> None:
         with TemporaryDirectory() as tmpdir:

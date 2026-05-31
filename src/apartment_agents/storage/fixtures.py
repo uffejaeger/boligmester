@@ -21,10 +21,23 @@ from apartment_agents.models import (
 
 
 class FixtureStore:
-    def __init__(self, root: Path | None = None) -> None:
+    def __init__(
+        self,
+        root: Path | None = None,
+        buyer_profile_roots: list[Path] | None = None,
+    ) -> None:
         self.root = root or Path("examples")
+        self.buyer_profile_roots = [
+            *(buyer_profile_roots or []),
+            self.root / "buyers",
+        ]
         self._listing_index_cache: dict[str, dict[str, str]] | None = None
         self._captured_listing_index_cache: dict[str, dict[str, str]] | None = None
+
+    def prepend_buyer_profile_root(self, root: Path) -> None:
+        if root in self.buyer_profile_roots:
+            self.buyer_profile_roots.remove(root)
+        self.buyer_profile_roots.insert(0, root)
 
     def load_listing_document(self, url: str) -> str:
         index = self._listing_index()
@@ -48,12 +61,13 @@ class FixtureStore:
             raise FixtureNotFoundError(f"Captured listing document missing: {path}") from exc
 
     def load_buyer_profile(self, profile_id: str) -> BuyerProfile:
-        path = self.root / "buyers" / f"{profile_id}.json"
-        try:
-            payload = self._read_json(path)
-        except FileNotFoundError as exc:
-            raise BuyerProfileNotFoundError(f"Buyer profile fixture missing: {profile_id}") from exc
-        return self._to_buyer_profile(payload)
+        for root in self.buyer_profile_roots:
+            path = root / f"{profile_id}.json"
+            try:
+                return self._to_buyer_profile(self._read_json(path))
+            except FileNotFoundError:
+                continue
+        raise BuyerProfileNotFoundError(f"Buyer profile fixture missing: {profile_id}")
 
     def load_market_snapshot(self, city: str) -> MarketSnapshot:
         slug = city.lower().replace(" ", "_")
@@ -86,10 +100,12 @@ class FixtureStore:
         )
 
     def list_buyer_profiles(self) -> list[BuyerProfile]:
-        profiles = []
-        for path in sorted((self.root / "buyers").glob("*.json")):
-            profiles.append(self._to_buyer_profile(self._read_json(path)))
-        return profiles
+        profiles_by_id = {}
+        for root in self.buyer_profile_roots:
+            for path in sorted(root.glob("*.json")):
+                profile = self._to_buyer_profile(self._read_json(path))
+                profiles_by_id.setdefault(profile.buyer_id, profile)
+        return sorted(profiles_by_id.values(), key=lambda profile: profile.buyer_id)
 
     def validate_startup(self) -> None:
         if not self.root.exists():

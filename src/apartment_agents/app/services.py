@@ -18,6 +18,7 @@ from apartment_agents.finance.service import FinanceBoundary
 from apartment_agents.logging import get_logger, log_kv
 from apartment_agents.models import AnalysisReport, BuyerProfile
 from apartment_agents.storage.fixtures import FixtureStore
+from apartment_agents.storage.workspace import LocalWorkspaceStore
 from apartment_agents.tools.listings import ListingIngestionService
 
 logger = get_logger("services")
@@ -45,9 +46,13 @@ class AnalyzeApartmentService:
         listing_ingestion: ListingIngestionService | None = None,
         finance_boundary: FinanceBoundary | None = None,
         adk_runner: AdkAnalysisRunner | None = None,
+        workspace_store: LocalWorkspaceStore | None = None,
     ) -> None:
         self.config = config
+        assert config.workspace_dir is not None
+        self.workspace_store = workspace_store or LocalWorkspaceStore(config.workspace_dir)
         self.fixture_store = fixture_store or FixtureStore()
+        self.fixture_store.prepend_buyer_profile_root(self.workspace_store.buyer_profiles_dir)
         self.listing_ingestion = listing_ingestion or ListingIngestionService(
             self.fixture_store,
             config=config,
@@ -86,6 +91,14 @@ class AnalyzeApartmentService:
             recommendation=graph_result.report.recommendation.value,
             report_path=str(graph_result.report_path),
         )
+        self.workspace_store.save_analysis_run(graph_result.report, graph_result.report_path)
+        log_kv(
+            logger,
+            20,
+            "analysis_run_persisted",
+            report_id=graph_result.report.report_id,
+            workspace_dir=str(self.workspace_store.root),
+        )
         return AnalyzeApartmentResult(
             report=graph_result.report,
             finance_result=graph_result.finance_result,
@@ -95,6 +108,17 @@ class AnalyzeApartmentService:
 
     def available_buyer_profiles(self) -> list[BuyerProfile]:
         return self.fixture_store.list_buyer_profiles()
+
+    def save_buyer_profile(self, profile: BuyerProfile) -> Path:
+        path = self.workspace_store.save_buyer_profile(profile)
+        log_kv(
+            logger,
+            20,
+            "buyer_profile_persisted",
+            buyer_profile_id=profile.buyer_id,
+            path=str(path),
+        )
+        return path
 
     def _validate_startup(self) -> None:
         self.fixture_store.validate_startup()

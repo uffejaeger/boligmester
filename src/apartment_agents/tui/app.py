@@ -16,6 +16,7 @@ MENU_ITEMS = [
     "6 Watchlist",
     "7 Reports",
     "8 Settings",
+    "9 Buyer Profiles",
 ]
 
 PLACEHOLDER_SCREENS = {
@@ -53,6 +54,11 @@ PLACEHOLDER_SCREENS = {
         "title": "Settings",
         "status": "Planned",
         "message": "Interactive settings are not implemented yet. Runtime behavior is currently configured through environment variables.",
+    },
+    "9": {
+        "title": "Buyer Profiles",
+        "status": "Available",
+        "message": "Buyer profiles can be created in the Textual TUI and are saved to the local workspace.",
     },
 }
 
