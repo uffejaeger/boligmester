@@ -32,6 +32,21 @@ class AppConfigTest(unittest.TestCase):
                 with self.assertRaises(AdkRuntimeUnavailableError):
                     validate_runner_startup(config)
 
+    def test_google_adk_startup_validation_accepts_installed_runtime(self) -> None:
+        try:
+            import_module("google.adk")
+        except Exception:
+            self.skipTest("google-adk is not installed")
+
+        with TemporaryDirectory() as tmpdir:
+            config = AppConfig(
+                output_dir=Path(tmpdir),
+                adk_backend="google_adk",
+                google_api_key="test-key",
+            )
+
+            validate_runner_startup(config)
+
     def test_browser_listing_fetch_requires_command_when_enabled(self) -> None:
         with TemporaryDirectory() as tmpdir:
             with self.assertRaises(ConfigValidationError):
