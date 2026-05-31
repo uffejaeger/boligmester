@@ -83,9 +83,11 @@ class BoligsidenParser(HtmlListingParser):
 
     def _parse_visible_html(self, url: str, document: str) -> Listing:
         text = self._collapse_whitespace(self._strip_tags(document))
+        self._raise_if_blocked_page(text)
 
         address_match = re.search(
-            r"#?\s*([^#]+?)\s*(\d{4})\s+([A-Za-zÆØÅæøå .-]+)\s+Ejerlejlighed",
+            r"#?\s*([^#]+?)\s*,?\s*(\d{4})\s+([A-Za-zÆØÅæøå .-]+?)\s+"
+            r"(?:Ejerlejlighed|Lejlighed|Villalejlighed)",
             text,
         )
         if not address_match:
@@ -95,11 +97,45 @@ class BoligsidenParser(HtmlListingParser):
         postal_code = address_match.group(2).strip()
         city = address_match.group(3).strip()
 
-        price = self._extract_int(text, [r"(\d[\d\.]+)\s*kr\.", r"Til salg:\s*(\d[\d\.]+)\s*kr"])
-        area_sqm = self._extract_float(text, [r"Boligareal:\s*(\d+)\s*m²"])
-        rooms = self._extract_float(text, [r"(\d+)\s+værelser"], required=False)
-        owner_cost = self._extract_int(text, [r"Ejerudgift\s*(\d[\d\.]+)\s*kr/md"], required=False)
-        build_year = self._extract_int(text, [r"\b(18\d{2}|19\d{2}|20\d{2})\b"], required=False)
+        price = self._extract_int(
+            text,
+            [
+                r"Til salg:\s*(\d[\d\.]+)\s*kr",
+                r"Kontantpris\s*(\d[\d\.]+)\s*kr",
+                r"Pris\s*(\d[\d\.]+)\s*kr",
+                r"(\d[\d\.]+)\s*kr\.",
+            ],
+        )
+        area_sqm = self._extract_float(
+            text,
+            [
+                r"Boligareal:?\s*(\d+(?:[,.]\d+)?)\s*m[²2]",
+                r"Bolig\s*m[²2]\s*(\d+(?:[,.]\d+)?)",
+                r"(\d+(?:[,.]\d+)?)\s*m[²2]\s+bolig",
+            ],
+        )
+        rooms = self._extract_float(
+            text,
+            [
+                r"(\d+(?:[,.]\d+)?)\s+værelser",
+                r"Antal\s+rum\s*(\d+(?:[,.]\d+)?)",
+                r"Rum\s*(\d+(?:[,.]\d+)?)",
+            ],
+            required=False,
+        )
+        owner_cost = self._extract_int(
+            text,
+            [
+                r"Ejerudgift(?:\s+pr\.\s+md\.|:)?\s*(\d[\d\.]+)\s*kr",
+                r"Ejerudgift\s*(\d[\d\.]+)\s*kr/md",
+            ],
+            required=False,
+        )
+        build_year = self._extract_int(
+            text,
+            [r"Opført\s*(18\d{2}|19\d{2}|20\d{2})", r"\b(18\d{2}|19\d{2}|20\d{2})\b"],
+            required=False,
+        )
         elevator = self._extract_bool(text, "Elevator")
         balcony = self._extract_bool(text, "Altan")
         extracted_fields = ["address", "asking_price_dkk", "area_sqm"]
@@ -169,6 +205,18 @@ class BoligsidenParser(HtmlListingParser):
     def _collapse_whitespace(self, text: str) -> str:
         return re.sub(r"\s+", " ", text).strip()
 
+    def _raise_if_blocked_page(self, text: str) -> None:
+        normalized = text.lower()
+        blocked_markers = (
+            "checking if the site connection is secure",
+            "enable javascript and cookies",
+            "access denied",
+            "cloudflare",
+            "captcha",
+        )
+        if any(marker in normalized for marker in blocked_markers):
+            raise ListingIngestionError("Blocked Boligsiden page detected before extraction.")
+
     def _extract_int(self, text: str, patterns: list[str], required: bool = True) -> int | None:
         for pattern in patterns:
             match = re.search(pattern, text)
@@ -192,7 +240,7 @@ class BoligsidenParser(HtmlListingParser):
         return None
 
     def _extract_bool(self, text: str, label: str) -> bool | None:
-        match = re.search(rf"{label}:\s*(Ja|Nej)", text)
+        match = re.search(rf"{label}:?\s*(Ja|Nej)", text)
         if not match:
             return None
         return match.group(1) == "Ja"
