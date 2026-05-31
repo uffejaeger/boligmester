@@ -68,7 +68,9 @@ class BrowserCommandPageFetcherTest(unittest.TestCase):
             with patch("subprocess.run", return_value=Result()) as run_mock:
                 fetcher.fetch_text("https://www.boligsiden.dk/adresse/test")
 
-        self.assertIn(str(storage_state), run_mock.call_args.kwargs["env"]["BROWSER_STORAGE_STATE_PATH"])
+        self.assertIn(
+            str(storage_state), run_mock.call_args.kwargs["env"]["BROWSER_STORAGE_STATE_PATH"]
+        )
         self.assertIn(str(storage_state), run_mock.call_args.args[0])
 
 
