@@ -1,0 +1,85 @@
+{
+  "generated_at": "2026-05-31T13:12:30.402072+00:00",
+  "buyer_profile_id": "solo_engineer",
+  "input_label": "examples/validation/aarhus_urls.txt",
+  "listing_source_mode": "imported_capture_preferred",
+  "results": [
+    {
+      "url": "https://www.boligsiden.dk/adresse/odensegade-21-3-th-8000-aarhus-c-07510157___21___3____th",
+      "status": "imported_capture",
+      "recommendation": "BUY",
+      "report_path": "output/ab6dee8c-9231-4da8-952b-11b341d685e6.md",
+      "source_document": "live_html_text",
+      "extraction_method": "visible_html_regex",
+      "field_coverage_ratio": 1.0,
+      "error_type": null,
+      "error_message": null
+    },
+    {
+      "url": "https://www.boligsiden.dk/adresse/aaparken-6-2-4-8000-aarhus-c-07510157___6___2____4",
+      "status": "ingestion_error",
+      "recommendation": null,
+      "report_path": null,
+      "source_document": null,
+      "extraction_method": null,
+      "field_coverage_ratio": null,
+      "error_type": "ListingIngestionError",
+      "error_message": "No fixture or captured listing matched the URL and live listing fetch is disabled."
+    },
+    {
+      "url": "https://www.boligsiden.dk/adresse/frederiks-plads-8-5-5-8000-aarhus-c-07510157___8___5____5",
+      "status": "ingestion_error",
+      "recommendation": null,
+      "report_path": null,
+      "source_document": null,
+      "extraction_method": null,
+      "field_coverage_ratio": null,
+      "error_type": "ListingIngestionError",
+      "error_message": "No fixture or captured listing matched the URL and live listing fetch is disabled."
+    },
+    {
+      "url": "https://www.boligsiden.dk/adresse/aaboulevarden-51c-st-8000-aarhus-c-07510157__51c____st_",
+      "status": "ingestion_error",
+      "recommendation": null,
+      "report_path": null,
+      "source_document": null,
+      "extraction_method": null,
+      "field_coverage_ratio": null,
+      "error_type": "ListingIngestionError",
+      "error_message": "No fixture or captured listing matched the URL and live listing fetch is disabled."
+    },
+    {
+      "url": "https://www.boligsiden.dk/adresse/daugbjergvej-24-2-7-8000-aarhus-c-07510157___24___2____7",
+      "status": "ingestion_error",
+      "recommendation": null,
+      "report_path": null,
+      "source_document": null,
+      "extraction_method": null,
+      "field_coverage_ratio": null,
+      "error_type": "ListingIngestionError",
+      "error_message": "No fixture or captured listing matched the URL and live listing fetch is disabled."
+    },
+    {
+      "url": "https://www.boligsiden.dk/adresse/vester-alle-24a-1-th-8000-aarhus-c-07510157__24a___1____th",
+      "status": "ingestion_error",
+      "recommendation": null,
+      "report_path": null,
+      "source_document": null,
+      "extraction_method": null,
+      "field_coverage_ratio": null,
+      "error_type": "ListingIngestionError",
+      "error_message": "No fixture or captured listing matched the URL and live listing fetch is disabled."
+    }
+  ],
+  "summary": {
+    "total": 6,
+    "status_counts": {
+      "imported_capture": 1,
+      "ingestion_error": 5
+    },
+    "recommendation_counts": {
+      "BUY": 1
+    },
+    "average_field_coverage_ratio": 1.0
+  }
+}
