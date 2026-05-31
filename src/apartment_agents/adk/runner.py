@@ -3,11 +3,14 @@ from __future__ import annotations
 import asyncio
 import json
 import os
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
 from uuid import uuid4
 
 from apartment_agents.app.errors import AdkRuntimeUnavailableError
-from apartment_agents.adk.root_agent import build_google_adk_root_agent
+from apartment_agents.adk.root_agent import (
+    build_google_adk_root_agent,
+    build_root_agent_definition,
+)
 from apartment_agents.agents.contracts import AgentContext, AgentResponse, AgentStatus
 from apartment_agents.config import AppConfig
 from apartment_agents.finance.models import FinanceResult
@@ -17,10 +20,17 @@ from apartment_agents.models import AgentFinding, AnalysisReport, ConfidenceScor
 logger = get_logger("adk")
 
 try:
-    from google.adk.runners import InMemorySessionService, Runner
+    from google.adk.runners import Runner
 except ImportError:  # pragma: no cover
-    InMemorySessionService = None
     Runner = None
+
+try:
+    from google.adk.sessions import InMemorySessionService
+except ImportError:  # pragma: no cover
+    try:
+        from google.adk.runners import InMemorySessionService
+    except ImportError:
+        InMemorySessionService = None
 
 try:
     from google.genai import types as genai_types
@@ -34,6 +44,22 @@ class AnalysisInputs:
     finance_result: FinanceResult
 
 
+@dataclass(frozen=True, slots=True)
+class AdkEventTrace:
+    event_id: str | None
+    author: str | None
+    branch: str | None
+    node_path: str | None
+    final_response: bool
+    text: str | None
+    transfer_to_agent: str | None
+    error_code: str | None
+    error_message: str | None
+
+    def as_dict(self) -> dict[str, object]:
+        return asdict(self)
+
+
 class AdkAnalysisRunner:
     def analyze(self, inputs: AnalysisInputs) -> list[AgentResponse]:
         raise NotImplementedError
@@ -42,6 +68,8 @@ class AdkAnalysisRunner:
 class GoogleAdkAnalysisRunner(AdkAnalysisRunner):
     def __init__(self, config: AppConfig) -> None:
         self.config = config
+        self.last_event_trace: list[AdkEventTrace] = []
+        self.last_runtime_error: str | None = None
 
     def analyze(self, inputs: AnalysisInputs) -> list[AgentResponse]:
         if InMemorySessionService is None or Runner is None or genai_types is None:
@@ -50,6 +78,8 @@ class GoogleAdkAnalysisRunner(AdkAnalysisRunner):
             )
 
         os.environ.setdefault("GOOGLE_API_KEY", self.config.google_api_key or "")
+        self.last_event_trace = []
+        self.last_runtime_error = None
         prompt = self._prompt(inputs)
         root_agent = build_google_adk_root_agent(self.config.adk_model)
         log_kv(
@@ -83,8 +113,10 @@ class GoogleAdkAnalysisRunner(AdkAnalysisRunner):
                 session_id=session_id,
                 new_message=content,
             ):
-                if hasattr(event, "is_final_response") and event.is_final_response():
-                    response_text = event.content.parts[0].text
+                trace = self._trace_event(event)
+                self.last_event_trace.append(trace)
+                if trace.final_response and trace.text is not None:
+                    response_text = trace.text
             return response_text
 
         try:
@@ -92,6 +124,9 @@ class GoogleAdkAnalysisRunner(AdkAnalysisRunner):
                 asyncio.wait_for(_run(), timeout=self.config.adk_timeout_seconds)
             )
         except TimeoutError:
+            self.last_runtime_error = (
+                f"ADK analysis timed out after {self.config.adk_timeout_seconds} seconds."
+            )
             log_kv(
                 logger,
                 30,
@@ -106,6 +141,7 @@ class GoogleAdkAnalysisRunner(AdkAnalysisRunner):
                 )
             ]
         except Exception as exc:
+            self.last_runtime_error = str(exc)
             log_kv(
                 logger,
                 40,
@@ -128,8 +164,82 @@ class GoogleAdkAnalysisRunner(AdkAnalysisRunner):
             backend=self.config.adk_backend,
             run_id=inputs.context.run_id,
             response_count=len(responses),
+            event_count=len(self.last_event_trace),
+            delegated_agents=self.delegated_agent_names(),
         )
         return responses
+
+    def expected_sub_agent_names(self) -> list[str]:
+        return [child.name for child in build_root_agent_definition().children]
+
+    def delegated_agent_names(self) -> list[str]:
+        expected_names = set(self.expected_sub_agent_names())
+        observed = []
+        for trace in self.last_event_trace:
+            for name in (trace.author, trace.transfer_to_agent):
+                if name in expected_names and name not in observed:
+                    observed.append(name)
+        return observed
+
+    def delegation_evidence(self) -> dict[str, object]:
+        delegated_agents = self.delegated_agent_names()
+        expected_agents = self.expected_sub_agent_names()
+        return {
+            "expected_agents": expected_agents,
+            "delegated_agents": delegated_agents,
+            "missing_agents": [name for name in expected_agents if name not in delegated_agents],
+            "event_count": len(self.last_event_trace),
+            "runtime_error": self.last_runtime_error,
+            "events": [trace.as_dict() for trace in self.last_event_trace],
+        }
+
+    def _trace_event(self, event: object) -> AdkEventTrace:
+        return AdkEventTrace(
+            event_id=self._string_or_none(getattr(event, "id", None)),
+            author=self._string_or_none(getattr(event, "author", None)),
+            branch=self._string_or_none(getattr(event, "branch", None)),
+            node_path=self._node_path(event),
+            final_response=self._is_final_response(event),
+            text=self._event_text(event),
+            transfer_to_agent=self._transfer_to_agent(event),
+            error_code=self._string_or_none(getattr(event, "error_code", None)),
+            error_message=self._string_or_none(getattr(event, "error_message", None)),
+        )
+
+    def _is_final_response(self, event: object) -> bool:
+        if hasattr(event, "is_final_response"):
+            try:
+                return bool(event.is_final_response())
+            except Exception:
+                return False
+        return False
+
+    def _event_text(self, event: object) -> str | None:
+        content = getattr(event, "content", None)
+        parts = getattr(content, "parts", None)
+        if not parts:
+            return None
+        text_parts = []
+        for part in parts:
+            text = getattr(part, "text", None)
+            if text:
+                text_parts.append(str(text))
+        if not text_parts:
+            return None
+        return "\n".join(text_parts)
+
+    def _transfer_to_agent(self, event: object) -> str | None:
+        actions = getattr(event, "actions", None)
+        return self._string_or_none(getattr(actions, "transfer_to_agent", None))
+
+    def _node_path(self, event: object) -> str | None:
+        node_info = getattr(event, "node_info", None)
+        return self._string_or_none(getattr(node_info, "path", None))
+
+    def _string_or_none(self, value: object) -> str | None:
+        if value is None:
+            return None
+        return str(value)
 
     def _prompt(self, inputs: AnalysisInputs) -> str:
         listing = inputs.context.listing

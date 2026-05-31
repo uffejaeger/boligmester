@@ -107,6 +107,18 @@ That writes a timestamped JSON report under `output/validation/`.
 
 Use `--stdout-json` to print the full JSON report as well.
 
+## Live ADK Delegation Check
+
+To verify that the installed Google ADK runtime delegates to the configured
+sub-agents, run:
+
+```bash
+PYTHONPATH=src python3 scripts/verify_live_adk_delegation.py --stdout-json
+```
+
+See `docs/live-adk-delegation.md` for the evidence format and current local
+runtime findings.
+
 To prefer imported captured HTML deliberately before fixtures during validation:
 
 ```bash

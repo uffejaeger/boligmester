@@ -1,6 +1,7 @@
 import unittest
 from pathlib import Path
 from tempfile import TemporaryDirectory
+from types import SimpleNamespace
 
 from apartment_agents.adk.runner import GoogleAdkAnalysisRunner, MockAdkAnalysisRunner, build_runner
 from apartment_agents.config import AppConfig
@@ -109,6 +110,81 @@ class RunnerFactoryTest(unittest.TestCase):
             self.assertEqual(responses[0].status.value, "partial")
             self.assertIn("raw_response", responses[0].finding.details)
             self.assertIn("Structured ADK parsing failed.", responses[0].finding.warnings)
+
+    def test_google_adk_runner_records_delegation_evidence_from_events(self) -> None:
+        with TemporaryDirectory() as tmpdir:
+            runner = GoogleAdkAnalysisRunner(
+                AppConfig(
+                    output_dir=Path(tmpdir),
+                    adk_backend="google_adk",
+                    google_api_key="test-key",
+                )
+            )
+            runner.last_event_trace = [
+                runner._trace_event(
+                    _FakeEvent(
+                        author="buyer_committee",
+                        final_response=False,
+                        transfer_to_agent="listing_agent",
+                    )
+                ),
+                runner._trace_event(
+                    _FakeEvent(
+                        author="danish_credit_agent",
+                        final_response=True,
+                        text="Credit response",
+                    )
+                ),
+            ]
+
+            evidence = runner.delegation_evidence()
+
+            self.assertEqual(
+                evidence["delegated_agents"],
+                ["listing_agent", "danish_credit_agent"],
+            )
+            self.assertIn("market_comps_agent", evidence["missing_agents"])
+            self.assertEqual(evidence["event_count"], 2)
+            self.assertEqual(evidence["events"][0]["transfer_to_agent"], "listing_agent")
+
+    def test_google_adk_runner_handles_final_event_without_text(self) -> None:
+        with TemporaryDirectory() as tmpdir:
+            runner = GoogleAdkAnalysisRunner(
+                AppConfig(
+                    output_dir=Path(tmpdir),
+                    adk_backend="google_adk",
+                    google_api_key="test-key",
+                )
+            )
+
+            trace = runner._trace_event(_FakeEvent(author="buyer_committee", final_response=True))
+
+            self.assertTrue(trace.final_response)
+            self.assertIsNone(trace.text)
+
+
+class _FakeEvent:
+    def __init__(
+        self,
+        author: str,
+        final_response: bool,
+        text: str | None = None,
+        transfer_to_agent: str | None = None,
+    ) -> None:
+        self.id = "event-1"
+        self.author = author
+        self.branch = "branch-1"
+        self.node_info = SimpleNamespace(path=f"/{author}")
+        self.content = (
+            SimpleNamespace(parts=[SimpleNamespace(text=text)]) if text is not None else None
+        )
+        self.actions = SimpleNamespace(transfer_to_agent=transfer_to_agent)
+        self.error_code = None
+        self.error_message = None
+        self._final_response = final_response
+
+    def is_final_response(self) -> bool:
+        return self._final_response
 
 
 if __name__ == "__main__":
