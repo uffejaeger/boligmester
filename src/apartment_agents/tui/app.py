@@ -1,11 +1,11 @@
 from __future__ import annotations
 
 from apartment_agents.app.errors import ApartmentAgentsError
-from apartment_agents.app.services import AnalyzeApartmentRequest, AnalyzeApartmentService
+from apartment_agents.app.services import AnalyzeApartmentService
 from apartment_agents.config import AppConfig
 from apartment_agents.logging import get_logger, log_kv
 
-APP_TITLE = "ApartmentBuyingAgents DK"
+APP_TITLE = "Boligmester"
 
 MENU_ITEMS = [
     "1 Analyze Apartment URL",
@@ -71,62 +71,28 @@ def render_placeholder_screen(choice: str) -> str:
     return f"{screen['title']}\n\nStatus: {screen['status']}\n\n{screen['message']}"
 
 
+def _load_textual_launcher():
+    try:
+        from apartment_agents.tui.textual_ui import run_textual_app
+    except ImportError as exc:  # pragma: no cover - exercised only when dependency is absent
+        raise RuntimeError(
+            "Textual is not installed. Install the TUI extra with `pip install -e '.[tui]'`."
+        ) from exc
+    return run_textual_app
+
+
 def run(
     input_func=input,
     output_func=print,
     service: AnalyzeApartmentService | None = None,
 ) -> None:
+    del input_func, output_func
     try:
         service = service or AnalyzeApartmentService(config=AppConfig.load())
     except ApartmentAgentsError as exc:
         log_kv(logger, 40, "tui_startup_failed", error=str(exc))
-        output_func(f"Startup error: {exc}")
-        return
+        raise
 
     log_kv(logger, 20, "tui_started")
-    output_func(render_main_menu())
-    choice = input_func("Choose an option: ").strip()
-    log_kv(logger, 20, "tui_choice_selected", choice=choice)
-    if choice in PLACEHOLDER_SCREENS:
-        output_func(render_placeholder_screen(choice))
-        return
-    if choice != "1":
-        output_func(render_placeholder_screen(choice))
-        return
-
-    output_func("Available buyer profiles:")
-    for profile in service.available_buyer_profiles():
-        output_func(
-            f"- {profile.buyer_id}: net {profile.net_monthly_income_dkk:,} DKK/month, "
-            f"savings {profile.savings_dkk:,} DKK"
-        )
-
-    listing_url = input_func("Listing URL: ").strip()
-    buyer_profile_id = input_func("Buyer profile id: ").strip()
-
-    if not listing_url:
-        log_kv(logger, 30, "tui_validation_failed", field="listing_url")
-        output_func("Analysis error: Listing URL is required.")
-        return
-    if not buyer_profile_id:
-        log_kv(logger, 30, "tui_validation_failed", field="buyer_profile_id")
-        output_func("Analysis error: Buyer profile id is required.")
-        return
-
-    output_func("Running analysis...")
-    try:
-        result = service.analyze(
-            AnalyzeApartmentRequest(
-                listing_url=listing_url,
-                buyer_profile_id=buyer_profile_id,
-            )
-        )
-    except ApartmentAgentsError as exc:
-        log_kv(logger, 40, "tui_analysis_failed", error=str(exc))
-        output_func(f"Analysis error: {exc}")
-        return
-    output_func("")
-    output_func(f"Recommendation: {result.report.recommendation.value}")
-    output_func(f"Report written to: {result.report_path}")
-    output_func("")
-    output_func(result.report_markdown)
+    launcher = _load_textual_launcher()
+    launcher(service)
