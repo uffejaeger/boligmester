@@ -16,7 +16,7 @@ class FinanceInputs:
     children: int
     monthly_childcare_cost_dkk: int
     nominal_interest_rate_pct: float = 4.0
-    stress_interest_rate_pct: float = 6.0
+    stress_interest_rate_pct: float | None = None
     mortgage_years: int = 30
     bank_loan_years: int = 10
     mortgage_share: float = 0.8
@@ -36,4 +36,9 @@ class FinanceResult:
     maximum_purchase_price_dkk: int
     maximum_safe_purchase_price_dkk: int
     approval_likelihood: str
+    required_monthly_buffer_dkk: int = 0
+    stress_disposable_income_after_housing_dkk: int = 0
+    post_purchase_liquid_assets_dkk: int = 0
+    stressed_net_wealth_dkk: int | None = None
+    debt_factor_status: str = "standard"
     policy_notes: list[str] = field(default_factory=list)

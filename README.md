@@ -14,6 +14,7 @@ Current implementation includes:
 * mission, vision, and goals in `plan.md`
 * a typed application service layer under `src/`
 * deterministic finance calculations
+* calibrated Danish finance screening assumptions
 * listing ingestion with fixture, live-fetch, browser-fallback, and imported-capture paths
 * a validation harness for real-world URL sets
 * an explicit top-level analysis workflow graph with deterministic nodes and an ADK agent boundary
@@ -33,6 +34,7 @@ Still in progress:
 * [ADK analysis graph](docs/adk-analysis-graph.md)
 * [Browser fetch contract](docs/browser-fetch-contract.md)
 * [Finance boundary](docs/finance-boundary.md)
+* [Finance policy calibration](docs/finance-policy.md)
 * [MVP validation notes](docs/mvp-validation-aarhus.md)
 
 ## Repository Layout

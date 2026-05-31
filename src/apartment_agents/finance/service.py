@@ -66,4 +66,5 @@ class FinanceBoundary:
         return [
             "Finance boundary is deterministic and isolated from agent reasoning.",
             "Only structured inputs and outputs cross the finance package boundary.",
+            "Finance policy is documented in docs/finance-policy.md.",
         ]

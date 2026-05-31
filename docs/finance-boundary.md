@@ -21,7 +21,7 @@ Code outside the finance package must not:
 * `models.py`
   Structured input and output types for deterministic calculations.
 * `engine.py`
-  Pure calculation logic and affordability policy.
+  Pure calculation logic and calibrated affordability policy.
 * `service.py`
   The service-facing boundary used by the application layer.
 
@@ -34,3 +34,8 @@ That keeps:
 * TUI code free of financial logic
 * ADK code free of invented finance numbers
 * report generation dependent on structured outputs instead of calculation internals
+
+## Policy Calibration
+
+See [Finance policy calibration](finance-policy.md) for the current Danish
+screening assumptions, source review, and remaining approximation.
